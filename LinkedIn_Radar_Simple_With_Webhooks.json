@@ -1,0 +1,363 @@
+{
+  "name": "Weekly LinkedIn Content Radar (Enhanced)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * 0"
+            }
+          ],
+          "timezone": "Europe/Paris"
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;\nreturn [{ json: { runId } }];"
+      },
+      "id": "generate-run-id",
+      "name": "Generate Run ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'run_started',\n  run_id: $json.runId,\n  timestamp: new Date().toISOString(),\n  creators_count: 25\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-run-started",
+      "name": "Webhook: Run Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "creators-list",
+              "name": "creators",
+              "value": "=[\n  \"https://www.linkedin.com/in/agrim-goyal\",\n  \"https://www.linkedin.com/in/jessievanbreugel\",\n  \"https://www.linkedin.com/in/domingo-valadez\",\n  \"https://www.linkedin.com/in/arthur-morin-girard-824294357\",\n  \"https://www.linkedin.com/in/leadgenwiz\",\n  \"https://www.linkedin.com/in/antonyslumbers\",\n  \"https://www.linkedin.com/in/ottotatton\",\n  \"https://www.linkedin.com/in/nielsklement\",\n  \"https://www.linkedin.com/in/jonathan-peslar\",\n  \"https://www.linkedin.com/in/nicholas-puruczky-113818198\",\n  \"https://www.linkedin.com/in/brandonpassley\",\n  \"https://www.linkedin.com/in/mattlakajev\",\n  \"https://www.linkedin.com/in/duncanrogoff\",\n  \"https://www.linkedin.com/in/teddy-james\",\n  \"https://www.linkedin.com/in/jason-ratcliff-8a416014b\",\n  \"https://www.linkedin.com/in/matt-yellin\",\n  \"https://www.linkedin.com/in/jakeheller1\",\n  \"https://www.linkedin.com/in/jaindl\",\n  \"https://www.linkedin.com/in/tomos-ormsby-63592134b\",\n  \"https://www.linkedin.com/in/toprealestateappraiser\",\n  \"https://www.linkedin.com/in/santosh-srinivas-n0c0de\",\n  \"https://www.linkedin.com/in/michel-lieben\",\n  \"https://www.linkedin.com/in/ivanfalco\",\n  \"https://www.linkedin.com/in/alex-vacca\",\n  \"https://www.linkedin.com/in/grycz-monika\"\n]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "creator-list",
+      "name": "25 LinkedIn Creators",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "creators",
+        "options": {}
+      },
+      "id": "split-creators",
+      "name": "Split Creators",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock scraping - replace with actual Apify call\nconst creator = $input.item.json.creators;\n\n// Simulate scraped posts\nconst mockPosts = [\n  {\n    creator: creator.split('/in/')[1],\n    creatorName: 'Creator Name',\n    postText: 'Sample LinkedIn post about AI and automation...',\n    postUrl: 'https://www.linkedin.com/posts/sample',\n    postedDate: new Date().toISOString(),\n    likes: 150,\n    comments: 12,\n    contentType: 'text'\n  }\n];\n\nreturn mockPosts.map(post => ({ json: post }));"
+      },
+      "id": "scrape-posts",
+      "name": "Scrape Posts (Mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300],
+      "notes": "Replace this with actual Apify LinkedIn scraper call"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'posts_scraped',\n  run_id: $('Generate Run ID').first().json.runId,\n  posts: $input.all().map(i => i.json)\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-posts-scraped",
+      "name": "Webhook: Posts Scraped",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock AI scoring - replace with OpenAI call\nconst post = $input.item.json;\n\nconst scored = {\n  ...post,\n  relevanceScore: 4,\n  valueDepthScore: 5,\n  toneGood: true,\n  leadMagnetOpportunity: true,\n  leadMagnetSuggestion: 'Automation checklist',\n  aiReasoning: 'High value content about practical automation',\n  finalScore: (4 * 2) + (5 * 3) // = 23\n};\n\nreturn [{ json: scored }];"
+      },
+      "id": "ai-scoring",
+      "name": "AI Scoring (Mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 400],
+      "notes": "Replace with OpenAI API call for actual scoring"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'analysis_complete',\n  run_id: $('Generate Run ID').first().json.runId,\n  analyzed_posts: $input.all().map(i => i.json)\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-analysis-complete",
+      "name": "Webhook: Analysis Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock post generation - replace with OpenAI\nconst post = $input.item.json;\n\nconst generated = {\n  rank: 1,\n  creator: post.creatorName,\n  originalPostText: post.postText,\n  originalUrl: post.postUrl,\n  postedDate: post.postedDate,\n  likes: post.likes,\n  comments: post.comments,\n  relevanceScore: post.relevanceScore,\n  valueDepthScore: post.valueDepthScore,\n  finalScore: post.finalScore,\n  generatedPost: 'NEW: AI-generated LinkedIn post based on the top performer...',\n  leadMagnetSuggestion: post.leadMagnetSuggestion,\n  timestamp: new Date().toISOString(),\n  weekOf: new Date().toISOString().split('T')[0]\n};\n\nreturn [{ json: generated }];"
+      },
+      "id": "generate-posts",
+      "name": "Generate Posts (Mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 400],
+      "notes": "Replace with OpenAI GPT-4 for actual generation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'generation_complete',\n  run_id: $('Generate Run ID').first().json.runId,\n  generated_posts: $input.all().map(i => i.json)\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-generation-complete",
+      "name": "Webhook: Generation Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'run_complete',\n  run_id: $('Generate Run ID').first().json.runId,\n  status: 'completed',\n  stats: {\n    creators_scraped: 25,\n    posts_scraped: 50,\n    posts_analyzed: 50,\n    posts_generated: 7,\n    openai_calls: 30,\n    openai_cost_usd: 2.50\n  },\n  outputs: {\n    google_sheet_url: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID',\n    google_drive_pdf_url: 'https://drive.google.com/file/d/YOUR_FILE_ID'\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-run-complete",
+      "name": "Webhook: Run Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2250, 400]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Generate Run ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Run ID": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Run Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Run Started": {
+      "main": [
+        [
+          {
+            "node": "25 LinkedIn Creators",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "25 LinkedIn Creators": {
+      "main": [
+        [
+          {
+            "node": "Split Creators",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Creators": {
+      "main": [
+        [
+          {
+            "node": "Scrape Posts (Mock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Posts (Mock)": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Posts Scraped",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Scoring (Mock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Scoring (Mock)": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Analysis Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Analysis Complete": {
+      "main": [
+        [
+          {
+            "node": "Generate Posts (Mock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Posts (Mock)": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Generation Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Generation Complete": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Run Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-25T00:00:00.000Z",
+  "versionId": "1"
+}
