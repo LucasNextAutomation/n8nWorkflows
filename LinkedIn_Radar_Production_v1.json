@@ -1,0 +1,509 @@
+{
+  "name": "LinkedIn Content Radar - Production v1",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * 0"
+            }
+          ],
+          "timezone": "Europe/Paris"
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;\nconst timestamp = new Date().toISOString();\nreturn [{ json: { runId, timestamp, creatorsTotal: 25 } }];"
+      },
+      "id": "generate-run-id",
+      "name": "Generate Run ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'run_started',\n  run_id: $json.runId,\n  timestamp: $json.timestamp,\n  creators_count: $json.creatorsTotal\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-run-started",
+      "name": "Webhook: Run Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "creators-list",
+              "name": "creators",
+              "value": "=[\"https://www.linkedin.com/in/agrim-goyal\",\"https://www.linkedin.com/in/jessievanbreugel\",\"https://www.linkedin.com/in/domingo-valadez\",\"https://www.linkedin.com/in/arthur-morin-girard-824294357\",\"https://www.linkedin.com/in/leadgenwiz\",\"https://www.linkedin.com/in/antonyslumbers\",\"https://www.linkedin.com/in/ottotatton\",\"https://www.linkedin.com/in/nielsklement\",\"https://www.linkedin.com/in/jonathan-peslar\",\"https://www.linkedin.com/in/nicholas-puruczky-113818198\",\"https://www.linkedin.com/in/brandonpassley\",\"https://www.linkedin.com/in/mattlakajev\",\"https://www.linkedin.com/in/duncanrogoff\",\"https://www.linkedin.com/in/teddy-james\",\"https://www.linkedin.com/in/jason-ratcliff-8a416014b\",\"https://www.linkedin.com/in/matt-yellin\",\"https://www.linkedin.com/in/jakeheller1\",\"https://www.linkedin.com/in/jaindl\",\"https://www.linkedin.com/in/tomos-ormsby-63592134b\",\"https://www.linkedin.com/in/toprealestateappraiser\",\"https://www.linkedin.com/in/santosh-srinivas-n0c0de\",\"https://www.linkedin.com/in/michel-lieben\",\"https://www.linkedin.com/in/ivanfalco\",\"https://www.linkedin.com/in/alex-vacca\",\"https://www.linkedin.com/in/grycz-monika\"]",
+              "type": "array"
+            },
+            {
+              "id": "run-id",
+              "name": "runId",
+              "value": "={{ $('Generate Run ID').item.json.runId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "creator-list",
+      "name": "25 LinkedIn Creators",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "creators",
+        "options": {}
+      },
+      "id": "split-creators",
+      "name": "Split Into Individual Creators",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Random delay 2-5 seconds for rate limiting\nconst delay = Math.floor(Math.random() * 3000) + 2000;\nawait new Promise(resolve => setTimeout(resolve, delay));\n\nreturn [$input.item];"
+      },
+      "id": "rate-limit-delay",
+      "name": "Rate Limit Delay",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Bright Data LinkedIn Scraper with retry logic\nconst creatorUrl = $input.item.json.creators;\nconst token = $env.BRIGHTDATA_TOKEN;\nconst maxRetries = 3;\n\nlet attempt = 0;\nlet lastError = null;\n\nwhile (attempt < maxRetries) {\n  try {\n    const response = await $http.request({\n      method: 'POST',\n      url: 'https://api.brightdata.com/dca/collect',\n      headers: {\n        'Authorization': `Bearer ${token}`,\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify({\n        url: creatorUrl,\n        format: 'json',\n        render: 'html',\n        wait_for_selector: '.feed-shared-update-v2',\n        country: 'us',\n        zone: $env.BRIGHTDATA_ZONE || 'datacenter'\n      })\n    });\n\n    if (response.statusCode === 200) {\n      return [{\n        json: {\n          creatorUrl,\n          scraped: true,\n          data: response.body,\n          attempt: attempt + 1\n        }\n      }];\n    }\n\n    // Retry on specific status codes\n    if ([408, 429, 500, 502, 503, 504].includes(response.statusCode)) {\n      lastError = `HTTP ${response.statusCode}`;\n      attempt++;\n      const backoff = Math.pow(2, attempt) * 1000 + Math.random() * 1000;\n      await new Promise(resolve => setTimeout(resolve, backoff));\n      continue;\n    }\n\n    throw new Error(`HTTP ${response.statusCode}: ${response.body}`);\n\n  } catch (error) {\n    lastError = error.message;\n    attempt++;\n    if (attempt >= maxRetries) {\n      return [{\n        json: {\n          creatorUrl,\n          scraped: false,\n          error: lastError,\n          attempts: attempt\n        }\n      }];\n    }\n    const backoff = Math.pow(2, attempt) * 1000 + Math.random() * 1000;\n    await new Promise(resolve => setTimeout(resolve, backoff));\n  }\n}\n\nreturn [{\n  json: {\n    creatorUrl,\n    scraped: false,\n    error: lastError,\n    attempts: maxRetries\n  }\n}];"
+      },
+      "id": "scrape-brightdata",
+      "name": "Bright Data: Scrape Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400],
+      "notes": "Scrapes LinkedIn with 3 retry attempts and exponential backoff"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Bright Data response and extract posts\nconst item = $input.item.json;\n\nif (!item.scraped) {\n  return [];\n}\n\nconst data = item.data;\nconst creatorUrl = item.creatorUrl;\nconst username = creatorUrl.split('/in/')[1];\n\n// Parse posts from Bright Data response\n// NOTE: Adjust parsing based on actual Bright Data response structure\nconst posts = [];\n\nif (data && data.posts && Array.isArray(data.posts)) {\n  for (const post of data.posts) {\n    posts.push({\n      json: {\n        creator: username,\n        creatorUrl: creatorUrl,\n        creatorName: data.name || username.replace(/-/g, ' '),\n        postText: post.text || '',\n        postUrl: post.url || '',\n        postedDate: post.date || new Date().toISOString(),\n        likes: post.likes || 0,\n        comments: post.comments || 0,\n        shares: post.shares || 0,\n        isReshare: post.isReshare || false,\n        contentType: post.type || 'text'\n      }\n    });\n  }\n}\n\nreturn posts;"
+      },
+      "id": "parse-posts",
+      "name": "Parse Scrape Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter posts: last 7 days, 100+ likes, not reshares\nconst posts = $input.all();\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n\nconst filtered = posts.filter(item => {\n  const post = item.json;\n  const postDate = new Date(post.postedDate);\n  \n  return postDate >= sevenDaysAgo && \n         post.likes >= 100 && \n         !post.isReshare;\n});\n\nreturn filtered;"
+      },
+      "id": "filter-posts",
+      "name": "Filter Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deduplication: Check if post was analyzed in last 30 days\n// For production, query Supabase 'posts' table\n// For now, simple URL-based dedup in current run\n\nconst posts = $input.all();\nconst seen = new Set();\nconst unique = [];\n\nfor (const item of posts) {\n  const postUrl = item.json.postUrl;\n  if (!seen.has(postUrl)) {\n    seen.add(postUrl);\n    unique.push(item);\n  }\n}\n\nreturn unique;"
+      },
+      "id": "deduplication",
+      "name": "Deduplication Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400],
+      "notes": "Remove duplicate posts by URL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'posts_scraped',\n  run_id: $('Generate Run ID').first().json.runId,\n  posts_count: $input.all().length,\n  posts: $input.all().map(i => ({\n    creator: i.json.creator,\n    postUrl: i.json.postUrl,\n    likes: i.json.likes,\n    postedDate: i.json.postedDate\n  }))\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-posts-scraped",
+      "name": "Webhook: Posts Scraped",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// OpenAI GPT-4 Scoring with Lead Magnet Detection\nconst post = $input.item.json;\nconst apiKey = $env.OPENAI_API_KEY;\n\nconst prompt = `Analyze this LinkedIn post and provide scores:\n\nPOST:\n${post.postText}\n\nAUTHOR: ${post.creatorName}\nENGAGEMENT: ${post.likes} likes, ${post.comments} comments\n\nRate the post on:\n1. Relevance (1-5): How relevant is this to AI automation and productivity?\n2. Value Depth (1-5): How actionable and valuable is the content?\n3. Tone: Does it match professional, helpful tone? (yes/no)\n4. Lead Magnet: Could this inspire a downloadable resource? If yes, suggest one.\n\nRespond ONLY with valid JSON, no other text:\n{\n  \"relevanceScore\": 1-5,\n  \"valueDepthScore\": 1-5,\n  \"toneGood\": true/false,\n  \"leadMagnetOpportunity\": true/false,\n  \"leadMagnetSuggestion\": \"string or null\",\n  \"reasoning\": \"brief explanation\"\n}`;\n\ntry {\n  const response = await $http.request({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${apiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      model: 'gpt-4',\n      messages: [\n        { role: 'system', content: 'You are an AI content analyst. Respond only with valid JSON.' },\n        { role: 'user', content: prompt }\n      ],\n      temperature: 0.3,\n      max_tokens: 300\n    })\n  });\n\n  const result = response.body.choices[0].message.content;\n  const scores = JSON.parse(result);\n\n  return [{\n    json: {\n      ...post,\n      aiScores: scores,\n      openaiTokensInput: response.body.usage.prompt_tokens,\n      openaiTokensOutput: response.body.usage.completion_tokens,\n      openaiTokensTotal: response.body.usage.total_tokens\n    }\n  }];\n\n} catch (error) {\n  return [{\n    json: {\n      ...post,\n      aiScores: null,\n      error: error.message,\n      openaiTokensTotal: 0\n    }\n  }];\n}"
+      },
+      "id": "openai-scoring",
+      "name": "OpenAI: Score Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 500],
+      "notes": "GPT-4 analysis with lead magnet detection"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate final score and prepare for ranking\nconst post = $input.item.json;\n\nif (!post.aiScores) {\n  return [];\n}\n\nconst relevance = post.aiScores.relevanceScore || 0;\nconst valueDepth = post.aiScores.valueDepthScore || 0;\nconst finalScore = (relevance * 2) + (valueDepth * 3);\n\nreturn [{\n  json: {\n    ...post,\n    relevanceScore: relevance,\n    valueDepthScore: valueDepth,\n    finalScore: finalScore,\n    toneGood: post.aiScores.toneGood,\n    leadMagnetOpportunity: post.aiScores.leadMagnetOpportunity,\n    leadMagnetSuggestion: post.aiScores.leadMagnetSuggestion,\n    aiReasoning: post.aiScores.reasoning\n  }\n}];"
+      },
+      "id": "calculate-score",
+      "name": "Calculate Final Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Track OpenAI scoring costs\nconst posts = $input.all();\n\nlet totalInputTokens = 0;\nlet totalOutputTokens = 0;\n\nfor (const item of posts) {\n  totalInputTokens += item.json.openaiTokensInput || 0;\n  totalOutputTokens += item.json.openaiTokensOutput || 0;\n}\n\nconst inputCost = (totalInputTokens / 1000) * 0.01;\nconst outputCost = (totalOutputTokens / 1000) * 0.03;\nconst totalScoringCost = inputCost + outputCost;\n\nreturn posts.map(item => ({\n  json: {\n    ...item.json,\n    openaiScoringCostUsd: totalScoringCost\n  }\n}));"
+      },
+      "id": "track-scoring-cost",
+      "name": "Track OpenAI Scoring Cost",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'analysis_complete',\n  run_id: $('Generate Run ID').first().json.runId,\n  analyzed_count: $input.all().length,\n  top_posts: $input.all().sort((a,b) => b.json.finalScore - a.json.finalScore).slice(0, 5).map(i => ({\n    creator: i.json.creator,\n    score: i.json.finalScore,\n    likes: i.json.likes\n  }))\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-analysis-complete",
+      "name": "Webhook: Analysis Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3100, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort by final score and select top 15\nconst posts = $input.all();\n\nposts.sort((a, b) => b.json.finalScore - a.json.finalScore);\n\nconst top15 = posts.slice(0, 15);\n\nreturn top15;"
+      },
+      "id": "rank-top-15",
+      "name": "Rank Top 15",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select top 7 for post generation\nconst top15 = $input.all();\nconst top7 = top15.slice(0, 7);\n\nreturn top7;"
+      },
+      "id": "select-top-7",
+      "name": "Select Top 7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3540, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// OpenAI GPT-4: Generate new LinkedIn posts\nconst post = $input.item.json;\nconst apiKey = $env.OPENAI_API_KEY;\n\nconst prompt = `You are a LinkedIn content creator specializing in AI automation.\n\nCreate a NEW LinkedIn post inspired by this top-performing post:\n\nORIGINAL POST:\n${post.postText}\n\nORIGINAL STATS:\n- ${post.likes} likes\n- ${post.comments} comments\n- Posted by: ${post.creatorName}\n\nREQUIREMENTS:\n- Write in first person, professional but conversational tone\n- Focus on actionable insights about AI/automation\n- Include a hook in the first line\n- 150-250 words\n- Add 3-5 relevant hashtags at the end\n- DO NOT copy the original - create new value\n- Make it authentic and relatable\n\nWrite the complete post now:`;\n\ntry {\n  const response = await $http.request({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${apiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      model: 'gpt-4',\n      messages: [\n        { role: 'system', content: 'You are an expert LinkedIn content creator focused on AI and automation.' },\n        { role: 'user', content: prompt }\n      ],\n      temperature: 0.7,\n      max_tokens: 500\n    })\n  });\n\n  const generatedText = response.body.choices[0].message.content;\n\n  return [{\n    json: {\n      ...post,\n      generatedPost: generatedText,\n      openaiGenerationTokensInput: response.body.usage.prompt_tokens,\n      openaiGenerationTokensOutput: response.body.usage.completion_tokens,\n      openaiGenerationTokensTotal: response.body.usage.total_tokens\n    }\n  }];\n\n} catch (error) {\n  return [{\n    json: {\n      ...post,\n      generatedPost: null,\n      error: error.message,\n      openaiGenerationTokensTotal: 0\n    }\n  }];\n}"
+      },
+      "id": "openai-generate",
+      "name": "OpenAI: Generate Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3760, 500],
+      "notes": "GPT-4 generates 7 new LinkedIn posts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Add rank and format for output\nconst posts = $input.all();\n\nconst formatted = posts.map((item, index) => ({\n  json: {\n    rank: index + 1,\n    creator: item.json.creatorName,\n    originalPostText: item.json.postText,\n    originalUrl: item.json.postUrl,\n    postedDate: item.json.postedDate,\n    likes: item.json.likes,\n    comments: item.json.comments,\n    relevanceScore: item.json.relevanceScore,\n    valueDepthScore: item.json.valueDepthScore,\n    finalScore: item.json.finalScore,\n    generatedPost: item.json.generatedPost,\n    leadMagnetSuggestion: item.json.leadMagnetSuggestion,\n    timestamp: new Date().toISOString(),\n    weekOf: new Date().toISOString().split('T')[0],\n    openaiTokensUsed: (item.json.openaiTokensTotal || 0) + (item.json.openaiGenerationTokensTotal || 0)\n  }\n}));\n\nreturn formatted;"
+      },
+      "id": "format-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3980, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate total costs\nconst posts = $input.all();\n\nlet totalInputTokens = 0;\nlet totalOutputTokens = 0;\n\nfor (const item of posts) {\n  totalInputTokens += (item.json.openaiTokensInput || 0) + (item.json.openaiGenerationTokensInput || 0);\n  totalOutputTokens += (item.json.openaiTokensOutput || 0) + (item.json.openaiGenerationTokensOutput || 0);\n}\n\nconst inputCost = (totalInputTokens / 1000) * 0.01;\nconst outputCost = (totalOutputTokens / 1000) * 0.03;\nconst totalOpenAICost = inputCost + outputCost;\n\nconst creatorsScraped = 25;\nconst brightDataCost = creatorsScraped * 0.004;\n\nreturn posts.map(item => ({\n  json: {\n    ...item.json,\n    openaiCostUsd: totalOpenAICost,\n    brightdataCostUsd: brightDataCost,\n    totalCostUsd: totalOpenAICost + brightDataCost\n  }\n}));"
+      },
+      "id": "calculate-costs",
+      "name": "Calculate Total Costs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4200, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'generation_complete',\n  run_id: $('Generate Run ID').first().json.runId,\n  generated_count: $input.all().length,\n  posts: $input.all().map(i => ({\n    rank: i.json.rank,\n    creator: i.json.creator,\n    preview: i.json.generatedPost.substring(0, 100) + '...'\n  }))\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-generation-complete",
+      "name": "Webhook: Generation Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4420, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format data for Google Sheets\nconst posts = $input.all();\n\nconst rows = posts.map(item => ({\n  json: {\n    Rank: item.json.rank,\n    Creator: item.json.creator,\n    OriginalURL: item.json.originalUrl,\n    PostedDate: item.json.postedDate,\n    Likes: item.json.likes,\n    Comments: item.json.comments,\n    RelevanceScore: item.json.relevanceScore,\n    ValueDepthScore: item.json.valueDepthScore,\n    FinalScore: item.json.finalScore,\n    GeneratedPost: item.json.generatedPost,\n    LeadMagnet: item.json.leadMagnetSuggestion || 'None',\n    WeekOf: item.json.weekOf,\n    OpenAICost: item.json.openaiCostUsd,\n    BrightDataCost: item.json.brightdataCostUsd,\n    TotalCost: item.json.totalCostUsd\n  }\n}));\n\nreturn rows;"
+      },
+      "id": "format-sheets",
+      "name": "Format for Google Sheets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4640, 500]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Generated Posts",
+        "columns": {
+          "mappings": [
+            {"column": "Rank", "value": "={{ $json.Rank }}"},
+            {"column": "Creator", "value": "={{ $json.Creator }}"},
+            {"column": "Original URL", "value": "={{ $json.OriginalURL }}"},
+            {"column": "Posted Date", "value": "={{ $json.PostedDate }}"},
+            {"column": "Likes", "value": "={{ $json.Likes }}"},
+            {"column": "Comments", "value": "={{ $json.Comments }}"},
+            {"column": "Relevance Score", "value": "={{ $json.RelevanceScore }}"},
+            {"column": "Value Depth Score", "value": "={{ $json.ValueDepthScore }}"},
+            {"column": "Final Score", "value": "={{ $json.FinalScore }}"},
+            {"column": "Generated Post", "value": "={{ $json.GeneratedPost }}"},
+            {"column": "Lead Magnet", "value": "={{ $json.LeadMagnet }}"},
+            {"column": "Week Of", "value": "={{ $json.WeekOf }}"},
+            {"column": "OpenAI Cost", "value": "={{ $json.OpenAICost }}"},
+            {"column": "Bright Data Cost", "value": "={{ $json.BrightDataCost }}"},
+            {"column": "Total Cost", "value": "={{ $json.TotalCost }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "google-sheets",
+      "name": "Append to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [4860, 500],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "notes": "Requires Google Sheets OAuth2 credential"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate PDF content summary\nconst posts = $input.all();\nconst runId = $('Generate Run ID').first().json.runId;\nconst weekOf = posts[0]?.json.WeekOf || new Date().toISOString().split('T')[0];\n\nlet pdfContent = `# LinkedIn Content Radar - Week of ${weekOf}\\n\\n`;\npdfContent += `Run ID: ${runId}\\n`;\npdfContent += `Generated: ${new Date().toISOString()}\\n\\n`;\npdfContent += `## Top 7 LinkedIn Posts This Week\\n\\n`;\n\nfor (const item of posts) {\n  pdfContent += `### ${item.json.Rank}. ${item.json.Creator} (Score: ${item.json.FinalScore})\\n\\n`;\n  pdfContent += `**Original Post:**\\n${item.json.GeneratedPost}\\n\\n`;\n  pdfContent += `**Stats:** ${item.json.Likes} likes, ${item.json.Comments} comments\\n`;\n  pdfContent += `**Scores:** Relevance ${item.json.RelevanceScore}/5, Value ${item.json.ValueDepthScore}/5\\n`;\n  if (item.json.LeadMagnet !== 'None') {\n    pdfContent += `**Lead Magnet Idea:** ${item.json.LeadMagnet}\\n`;\n  }\n  pdfContent += `\\n---\\n\\n`;\n}\n\nconst totalCost = posts[0]?.json.TotalCost || 0;\npdfContent += `\\n\\n**Total Run Cost:** $${totalCost.toFixed(2)} USD\\n`;\n\nreturn [{\n  json: {\n    pdfContent,\n    fileName: `LinkedIn_Radar_${weekOf}.pdf`,\n    runId\n  }\n}];"
+      },
+      "id": "generate-pdf-content",
+      "name": "Generate PDF Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5080, 500]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "folderId": "={{ $env.GOOGLE_DRIVE_FOLDER_ID }}",
+        "fileName": "={{ $json.fileName }}",
+        "fileContent": "={{ $json.pdfContent }}",
+        "options": {
+          "mimeType": "application/pdf"
+        }
+      },
+      "id": "google-drive",
+      "name": "Upload PDF to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [5300, 500],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive-oauth",
+          "name": "Google Drive OAuth2"
+        }
+      },
+      "notes": "Requires Google Drive OAuth2 credential"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  event: 'run_complete',\n  run_id: $('Generate Run ID').first().json.runId,\n  status: 'completed',\n  stats: {\n    creators_scraped: 25,\n    posts_scraped: $('Deduplication Check').all().length,\n    posts_analyzed: $('Calculate Final Score').all().length,\n    posts_generated: 7,\n    openai_cost_usd: $input.item.json.openaiCostUsd || 0,\n    brightdata_cost_usd: $input.item.json.brightdataCostUsd || 0,\n    total_cost_usd: $input.item.json.totalCostUsd || 0\n  },\n  outputs: {\n    google_sheet_url: `https://docs.google.com/spreadsheets/d/${$env.GOOGLE_SHEET_ID}`,\n    google_drive_pdf_url: $json.webViewLink || ''\n  },\n  completed_at: new Date().toISOString()\n}) }}",
+        "options": {}
+      },
+      "id": "webhook-run-complete",
+      "name": "Webhook: Run Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5520, 400]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "Generate Run ID", "type": "main", "index": 0}]]
+    },
+    "Generate Run ID": {
+      "main": [[{"node": "Webhook: Run Started", "type": "main", "index": 0}]]
+    },
+    "Webhook: Run Started": {
+      "main": [[{"node": "25 LinkedIn Creators", "type": "main", "index": 0}]]
+    },
+    "25 LinkedIn Creators": {
+      "main": [[{"node": "Split Into Individual Creators", "type": "main", "index": 0}]]
+    },
+    "Split Into Individual Creators": {
+      "main": [[{"node": "Rate Limit Delay", "type": "main", "index": 0}]]
+    },
+    "Rate Limit Delay": {
+      "main": [[{"node": "Bright Data: Scrape Posts", "type": "main", "index": 0}]]
+    },
+    "Bright Data: Scrape Posts": {
+      "main": [[{"node": "Parse Scrape Results", "type": "main", "index": 0}]]
+    },
+    "Parse Scrape Results": {
+      "main": [[{"node": "Filter Posts", "type": "main", "index": 0}]]
+    },
+    "Filter Posts": {
+      "main": [[{"node": "Deduplication Check", "type": "main", "index": 0}]]
+    },
+    "Deduplication Check": {
+      "main": [[{"node": "Webhook: Posts Scraped", "type": "main", "index": 0}, {"node": "OpenAI: Score Posts", "type": "main", "index": 0}]]
+    },
+    "OpenAI: Score Posts": {
+      "main": [[{"node": "Calculate Final Score", "type": "main", "index": 0}]]
+    },
+    "Calculate Final Score": {
+      "main": [[{"node": "Track OpenAI Scoring Cost", "type": "main", "index": 0}]]
+    },
+    "Track OpenAI Scoring Cost": {
+      "main": [[{"node": "Webhook: Analysis Complete", "type": "main", "index": 0}]]
+    },
+    "Webhook: Analysis Complete": {
+      "main": [[{"node": "Rank Top 15", "type": "main", "index": 0}]]
+    },
+    "Rank Top 15": {
+      "main": [[{"node": "Select Top 7", "type": "main", "index": 0}]]
+    },
+    "Select Top 7": {
+      "main": [[{"node": "OpenAI: Generate Posts", "type": "main", "index": 0}]]
+    },
+    "OpenAI: Generate Posts": {
+      "main": [[{"node": "Format Output", "type": "main", "index": 0}]]
+    },
+    "Format Output": {
+      "main": [[{"node": "Calculate Total Costs", "type": "main", "index": 0}]]
+    },
+    "Calculate Total Costs": {
+      "main": [[{"node": "Webhook: Generation Complete", "type": "main", "index": 0}]]
+    },
+    "Webhook: Generation Complete": {
+      "main": [[{"node": "Format for Google Sheets", "type": "main", "index": 0}]]
+    },
+    "Format for Google Sheets": {
+      "main": [[{"node": "Append to Google Sheets", "type": "main", "index": 0}]]
+    },
+    "Append to Google Sheets": {
+      "main": [[{"node": "Generate PDF Content", "type": "main", "index": 0}]]
+    },
+    "Generate PDF Content": {
+      "main": [[{"node": "Upload PDF to Google Drive", "type": "main", "index": 0}]]
+    },
+    "Upload PDF to Google Drive": {
+      "main": [[{"node": "Webhook: Run Complete", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-25T00:00:00.000Z",
+  "versionId": "1.0.0"
+}
