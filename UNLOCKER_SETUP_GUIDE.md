@@ -21,7 +21,7 @@ Uses **Bright Data Unlocker API** to:
 ### Prerequisites
 
 ✅ **You already have:**
-- Bright Data account with `scraping_linkedin` zone
+- Bright Data account with `linkedin_unlocker` zone
 - API Token: `8d6d87d5...` (already in workflow)
 - $4.84 balance (enough for testing)
 
@@ -41,11 +41,11 @@ Before importing the workflow, let's verify Bright Data works with LinkedIn:
 Run this in your terminal:
 
 ```bash
-curl -X POST https://api.brightdata.com/request \
+curl --http1.1 -X POST https://api.brightdata.com/request \
   -H "Authorization: Bearer 8d6d87d5de48ae3e4e78cc8a7df1d1945bfb26d4af7775a8215e2b0ac2dee1c6" \
   -H "Content-Type: application/json" \
   -d '{
-    "zone": "scraping_linkedin",
+    "zone": "linkedin_unlocker",
     "url": "https://www.linkedin.com/in/zeyneb-madi-6821b521b/recent-activity/all/",
     "format": "raw",
     "country": "us"
@@ -90,7 +90,7 @@ curl -X POST https://api.brightdata.com/request \
 | Issue | Solution |
 |-------|----------|
 | `401 Unauthorized` | Check API token in Bright Data dashboard |
-| `403 Forbidden` | Verify `scraping_linkedin` zone is active |
+| `403 Forbidden` | Verify `linkedin_unlocker` zone is active |
 | `429 Rate Limit` | Wait 60 seconds, you hit 1000 req/min limit |
 | `Empty response` | LinkedIn blocked request - Bright Data may need config |
 | `HTML but no posts` | URL might need authentication (see Alternative URLs below) |
@@ -493,7 +493,7 @@ To process multiple creators simultaneously:
 
 ### Issue: "Zone not found"
 
-**Error:** `403 Forbidden - Zone 'scraping_linkedin' not found`
+**Error:** `403 Forbidden - Zone 'linkedin_unlocker' not found`
 
 **Solutions:**
 1. Check zone name: https://brightdata.com/cp/zones
@@ -599,7 +599,7 @@ After first production run, you should have:
 
 - **Rate limit:** 1000 requests/minute (plenty for 25 creators)
 - **Balance:** $4.84 current (add funds before going live)
-- **Zone:** `scraping_linkedin` must stay active
+- **Zone:** `linkedin_unlocker` must stay active
 
 ### LinkedIn Considerations
 

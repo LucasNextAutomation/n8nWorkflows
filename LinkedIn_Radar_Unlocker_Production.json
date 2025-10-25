@@ -88,7 +88,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"zone\": \"scraping_linkedin\",\n  \"url\": \"{{ $json.activityUrl }}\",\n  \"format\": \"raw\",\n  \"country\": \"us\"\n}",
+        "jsonBody": "={\n  \"zone\": \"linkedin_unlocker\",\n  \"url\": \"{{ $json.activityUrl }}\",\n  \"format\": \"raw\",\n  \"country\": \"us\"\n}",
         "options": {}
       },
       "id": "7",
