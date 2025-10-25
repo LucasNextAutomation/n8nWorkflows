@@ -31,13 +31,13 @@ The workflow is now in your n8n instance!
 
 You need to configure 4 services:
 
-#### A) Apify API Token
-- Go to [Apify.com](https://apify.com) and create a free account
+#### A) Bright Data API Token
+- Go to [Bright Data.com](https://brightdata.com) and create a free account
 - Navigate to **Settings** → **Integrations** → **API Token**
 - Copy your API token
-- In n8n: Click on the **"Apify LinkedIn Scraper"** node
+- In n8n: Click on the **"Bright Data LinkedIn Scraper"** node
 - Click **Credentials** → **Create New**
-- Add your Apify API token
+- Add your Bright Data API token
 
 #### B) OpenAI API Key
 - Go to [platform.openai.com](https://platform.openai.com)
@@ -88,24 +88,24 @@ Example:
 
 ---
 
-### Step 4: Configure Apify Scraper
+### Step 4: Configure Bright Data Scraper
 
-The workflow uses **Apify's LinkedIn Profile Scraper**. You need to:
+The workflow uses **Bright Data's LinkedIn Profile Scraper**. You need to:
 
-1. Go to [Apify.com](https://apify.com)
+1. Go to [Bright Data.com](https://brightdata.com)
 2. Find the **"LinkedIn Profile Scraper"** actor
 3. Make sure you have credits (free tier gives you $5/month)
 4. The workflow is configured to use `run-sync-get-dataset-items` for real-time results
 
 **Important**: LinkedIn scraping requires:
 - A valid LinkedIn account session cookie, OR
-- Apify's proxies (included in paid plans)
+- Bright Data's proxies (included in paid plans)
 
 To add your LinkedIn session:
 1. Log into LinkedIn in your browser
 2. Open Developer Tools (F12) → Application → Cookies
 3. Find the `li_at` cookie value
-4. In Apify scraper settings, add this as your session cookie
+4. In Bright Data scraper settings, add this as your session cookie
 
 ---
 
@@ -180,7 +180,7 @@ Estimated weekly costs:
 
 | Service | Cost | Notes |
 |---------|------|-------|
-| Apify | $0-2 | Free tier: $5/month credit |
+| Bright Data | $0-2 | Free tier: $5/month credit |
 | OpenAI GPT-4 | $0.50-2 | ~30-50 API calls per week |
 | Google Sheets | Free | Unlimited |
 | Google Drive | Free | 15GB free storage |
@@ -195,18 +195,18 @@ Estimated weekly costs:
 
 ## 🐛 Troubleshooting
 
-### "Apify scraper failed"
+### "Bright Data scraper failed"
 
 **Causes:**
 1. Invalid LinkedIn session cookie
-2. Apify credits exhausted
+2. Bright Data credits exhausted
 3. LinkedIn rate limiting
 
 **Solutions:**
 - Refresh your `li_at` cookie (expires every ~30 days)
-- Check Apify dashboard for credit balance
+- Check Bright Data dashboard for credit balance
 - Add delays between scraping requests
-- Use Apify's residential proxies (paid)
+- Use Bright Data's residential proxies (paid)
 
 ### "OpenAI request failed"
 
@@ -231,7 +231,7 @@ Estimated weekly costs:
 **Solutions:**
 - Extend time window to 14 days
 - Lower engagement threshold (50+ likes instead of 100+)
-- Check Apify logs for scraping errors
+- Check Bright Data logs for scraping errors
 - Verify creator URLs are correct
 
 ### "Google Sheets not updating"
@@ -340,7 +340,7 @@ Track monthly:
 ### Important Notes
 
 1. **LinkedIn TOS**: Web scraping may violate LinkedIn's Terms of Service. Use at your own risk.
-2. **API Keys**: Never share your Apify, OpenAI, or Google credentials
+2. **API Keys**: Never share your Bright Data, OpenAI, or Google credentials
 3. **Session Cookies**: Rotate your LinkedIn session cookie regularly
 4. **Data Storage**: Posts are stored in your Google Sheets - ensure proper access controls
 
@@ -348,7 +348,7 @@ Track monthly:
 
 - Use a dedicated LinkedIn account for scraping (not your main account)
 - Don't scrape too frequently (once per week is safe)
-- Use Apify's residential proxies for better reliability
+- Use Bright Data's residential proxies for better reliability
 - Enable 2FA on all connected accounts
 
 ---
@@ -358,7 +358,7 @@ Track monthly:
 ### Official Documentation
 
 - [n8n Documentation](https://docs.n8n.io/)
-- [Apify LinkedIn Scraper](https://apify.com/apify/linkedin-profile-scraper)
+- [Bright Data LinkedIn Scraper](https://brightdata.com/apify/linkedin-profile-scraper)
 - [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
 - [Google Sheets API](https://developers.google.com/sheets/api)
 
@@ -407,7 +407,7 @@ Load 10 Creator URLs
     ↓
 Split into Individual Items
     ↓
-Scrape Each Creator's Posts (Apify)
+Scrape Each Creator's Posts (Bright Data)
     ↓
 Filter: 7 days, 100+ likes, original only
     ↓

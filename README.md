@@ -52,7 +52,7 @@ You need to set up 4 services:
 
 | Service | Purpose | Cost |
 |---------|---------|------|
-| **Apify** | LinkedIn scraping | $0-2/week |
+| **Bright Data** | LinkedIn scraping | $0-2/week |
 | **OpenAI** | GPT-4 analysis & generation | $0.50-2/week |
 | **Google Sheets** | Data storage | Free |
 | **Google Drive** | PDF reports | Free |
@@ -108,7 +108,7 @@ Replace the placeholder URLs with 10 LinkedIn profiles in your niche:
                   │
                   ▼
 ┌─────────────────────────────────────────────────────┐
-│  Apify LinkedIn Scraper (20 posts per creator)      │
+│  Bright Data LinkedIn Scraper (20 posts per creator)      │
 └─────────────────┬───────────────────────────────────┘
                   │
                   ▼
@@ -241,18 +241,18 @@ const finalScore = (relevance * 3) + (valueDepth * 2) // Prioritize relevance
 
 ### Minimum Requirements
 - n8n instance (self-hosted or cloud)
-- Apify account (free tier works)
+- Bright Data account (free tier works)
 - OpenAI account with GPT-4 access
 - Google account
 
 ### Recommended Setup
 - n8n Cloud (for reliability)
-- Apify paid plan (for better scraping)
+- Bright Data paid plan (for better scraping)
 - OpenAI with usage monitoring
 - Dedicated Google Sheet
 
 ### API Rate Limits
-- Apify: ~100 requests/hour (free tier)
+- Bright Data: ~100 requests/hour (free tier)
 - OpenAI: 90,000 tokens/minute (tier 1)
 - Google Sheets: 300 requests/minute
 - Google Drive: 1,000 requests/user/100 seconds
@@ -285,9 +285,9 @@ const finalScore = (relevance * 3) + (valueDepth * 2) // Prioritize relevance
 - Extend time window (14 days instead of 7)
 - Verify creator URLs are correct
 
-**"Apify scraper failed"**
+**"Bright Data scraper failed"**
 - Refresh LinkedIn session cookie
-- Check Apify credit balance
+- Check Bright Data credit balance
 - Verify API token is valid
 
 **"OpenAI error"**
@@ -319,7 +319,7 @@ const finalScore = (relevance * 3) + (valueDepth * 2) // Prioritize relevance
 - All data stays in **your** Google Drive/Sheets
 - No third-party data sharing
 - OpenAI processes content per their privacy policy
-- Apify handles scraping with proxies
+- Bright Data handles scraping with proxies
 
 ---
 
@@ -397,7 +397,7 @@ This workflow is provided as-is under the MIT License.
 
 Built with:
 - [n8n](https://n8n.io) - Workflow automation
-- [Apify](https://apify.com) - Web scraping
+- [Bright Data](https://brightdata.com) - Web scraping
 - [OpenAI](https://openai.com) - GPT-4 analysis
 - [Google Workspace](https://workspace.google.com) - Data storage
 

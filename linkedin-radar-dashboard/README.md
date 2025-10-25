@@ -412,7 +412,7 @@ The dashboard tracks:
 - Average engagement rates
 - AI scoring trends
 - Automation success rate
-- API costs (OpenAI + Apify)
+- API costs (OpenAI + Bright Data)
 
 ### Exporting Data
 

@@ -139,7 +139,7 @@
         "options": {}
       },
       "id": "apify-scraper",
-      "name": "Apify LinkedIn Scraper",
+      "name": "Bright Data LinkedIn Scraper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1250, 300]
@@ -537,14 +537,14 @@
       "main": [
         [
           {
-            "node": "Apify LinkedIn Scraper",
+            "node": "Bright Data LinkedIn Scraper",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Apify LinkedIn Scraper": {
+    "Bright Data LinkedIn Scraper": {
       "main": [
         [
           {

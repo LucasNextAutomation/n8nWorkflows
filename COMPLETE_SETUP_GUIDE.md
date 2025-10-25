@@ -4,7 +4,7 @@
 
 Since you have an empty n8n instance, we'll:
 1. ✅ Import the original working workflow (no webhooks)
-2. ✅ Configure credentials (Apify, OpenAI, Google)
+2. ✅ Configure credentials (Bright Data, OpenAI, Google)
 3. ✅ Add webhook nodes manually (6 nodes)
 4. ✅ Test the complete system
 
@@ -26,7 +26,7 @@ You should now see a workflow with these nodes:
 - Schedule Trigger
 - 10 Target LinkedIn Creators
 - Split Into Items
-- Apify LinkedIn Scraper
+- Bright Data LinkedIn Scraper
 - Filter Posts
 - OpenAI Post Analysis & Scoring
 - Calculate & Rank (Top 15)
@@ -43,17 +43,17 @@ You should now see a workflow with these nodes:
 
 ## Part 2: Configure Credentials (10 minutes)
 
-### Step 2A: Apify Credentials
+### Step 2A: Bright Data Credentials
 
-1. Go to [apify.com](https://apify.com) → Sign up/Login
+1. Go to [brightdata.com](https://brightdata.com) → Sign up/Login
 2. Navigate to **Settings** → **Integrations** → **API Token**
 3. Copy your API token
 
 **In n8n:**
-1. Click on **"Apify LinkedIn Scraper"** node
-2. Click **"Credentials for Apify API"** dropdown
+1. Click on **"Bright Data LinkedIn Scraper"** node
+2. Click **"Credentials for Bright Data API"** dropdown
 3. Select **"Create New Credential"**
-4. Name: `Apify API`
+4. Name: `Bright Data API`
 5. Paste your API token
 6. Click **"Save"**
 
@@ -419,7 +419,7 @@ Your workflow should now look like this:
        ↓
 5. Split Into Items
        ↓
-6. Apify LinkedIn Scraper
+6. Bright Data LinkedIn Scraper
        ↓
 7. Filter Posts (7 days, 100+ likes)
        ├─→ Webhook: Posts Scraped [NEW] ─→ Dashboard ✉️
@@ -543,11 +543,11 @@ curl -X POST http://localhost:3000/api/webhook/n8n \
 
 Expected: `{"success":true,"message":"Webhook received","event":"run_started"}`
 
-### Issue: Apify scraper fails
+### Issue: Bright Data scraper fails
 
 **Check:**
-1. Valid Apify API token
-2. Sufficient credits in Apify account
+1. Valid Bright Data API token
+2. Sufficient credits in Bright Data account
 3. LinkedIn session cookie configured (if required)
 
 ### Issue: OpenAI requests fail
@@ -615,7 +615,7 @@ DASHBOARD_WEBHOOK_URL = https://your-app.vercel.app
 ## ✅ Setup Complete Checklist
 
 - [ ] Imported `LinkedIn_Content_Radar_Workflow.json` ✅
-- [ ] Configured Apify credentials ✅
+- [ ] Configured Bright Data credentials ✅
 - [ ] Configured OpenAI credentials ✅
 - [ ] Configured Google Sheets credentials ✅
 - [ ] Configured Google Drive credentials ✅

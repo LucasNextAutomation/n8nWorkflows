@@ -174,9 +174,9 @@ CREATE TABLE automation_runs (
   openai_tokens_used INTEGER DEFAULT 0,
   openai_cost_usd DECIMAL(10,4) DEFAULT 0,
 
-  apify_calls INTEGER DEFAULT 0,
-  apify_credits_used INTEGER DEFAULT 0,
-  apify_cost_usd DECIMAL(10,4) DEFAULT 0,
+  brightdata_calls INTEGER DEFAULT 0,
+  brightdata_credits_used INTEGER DEFAULT 0,
+  brightdata_cost_usd DECIMAL(10,4) DEFAULT 0,
 
   -- Output URLs
   google_sheet_url TEXT,
@@ -224,7 +224,7 @@ CREATE TABLE analytics_daily (
 
   -- Cost tracking
   total_openai_cost_usd DECIMAL(10,4) DEFAULT 0,
-  total_apify_cost_usd DECIMAL(10,4) DEFAULT 0,
+  total_brightdata_cost_usd DECIMAL(10,4) DEFAULT 0,
   total_cost_usd DECIMAL(10,4) DEFAULT 0,
 
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -432,7 +432,7 @@ BEGIN
   -- Sum costs
   SELECT
     COALESCE(SUM(openai_cost_usd), 0),
-    COALESCE(SUM(apify_cost_usd), 0)
+    COALESCE(SUM(brightdata_cost_usd), 0)
   INTO v_openai_cost, v_apify_cost
   FROM automation_runs
   WHERE DATE(started_at) = target_date;
@@ -449,7 +449,7 @@ BEGIN
     runs_failed,
     avg_duration_seconds,
     total_openai_cost_usd,
-    total_apify_cost_usd,
+    total_brightdata_cost_usd,
     total_cost_usd
   ) VALUES (
     target_date,
@@ -475,7 +475,7 @@ BEGIN
     runs_failed = EXCLUDED.runs_failed,
     avg_duration_seconds = EXCLUDED.avg_duration_seconds,
     total_openai_cost_usd = EXCLUDED.total_openai_cost_usd,
-    total_apify_cost_usd = EXCLUDED.total_apify_cost_usd,
+    total_brightdata_cost_usd = EXCLUDED.total_brightdata_cost_usd,
     total_cost_usd = EXCLUDED.total_cost_usd,
     updated_at = NOW();
 END;
@@ -625,8 +625,8 @@ SELECT
   r.posts_analyzed,
   r.posts_generated,
   r.openai_cost_usd,
-  r.apify_cost_usd,
-  (r.openai_cost_usd + r.apify_cost_usd) AS total_cost,
+  r.brightdata_cost_usd,
+  (r.openai_cost_usd + r.brightdata_cost_usd) AS total_cost,
   COUNT(gp.id) AS generated_posts_count
 FROM automation_runs r
 LEFT JOIN generated_posts gp ON r.id = gp.run_id

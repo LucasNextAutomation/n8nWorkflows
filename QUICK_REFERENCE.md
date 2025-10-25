@@ -7,7 +7,7 @@
 ```
 1. Import workflow JSON into n8n
 2. Add 4 credentials:
-   - Apify API token
+   - Bright Data API token
    - OpenAI API key
    - Google Sheets (create sheet: "LinkedIn Content Radar")
    - Google Drive (create folder: "LinkedIn Weekly Radar")
@@ -20,7 +20,7 @@
 
 | Service | Where to Get | What You Need |
 |---------|-------------|---------------|
-| **Apify** | apify.com/settings | API Token |
+| **Bright Data** | brightdata.com/settings | API Token |
 | **OpenAI** | platform.openai.com/api-keys | API Key (GPT-4 access) |
 | **Google Sheets** | OAuth in n8n | Spreadsheet ID |
 | **Google Drive** | OAuth in n8n | Folder ID |
@@ -31,7 +31,7 @@
 |-----------|--------------|-----------|
 | Schedule Trigger | Runs every Sunday 2PM | Cron expression |
 | 10 Target Creators | Your creator list | Replace URLs |
-| Apify Scraper | Gets LinkedIn posts | Add session cookie |
+| Bright Data Scraper | Gets LinkedIn posts | Add session cookie |
 | Filter Posts | Keeps high-engagement posts | Change thresholds |
 | OpenAI Analysis | Scores posts 1-5 | Adjust prompts |
 | Calculate & Rank | Selects top 15 | Change scoring formula |
@@ -45,7 +45,7 @@
 | Problem | Solution |
 |---------|----------|
 | "No posts found" | Lower engagement threshold (50+ likes) |
-| "Apify failed" | Refresh LinkedIn session cookie |
+| "Bright Data failed" | Refresh LinkedIn session cookie |
 | "OpenAI error" | Check API credits & rate limits |
 | "Sheets not updating" | Verify spreadsheet ID & sheet name |
 | "PDF not created" | Check HTML syntax & Drive permissions |
@@ -95,7 +95,7 @@ items.slice(0, 7) // Change 7 to 5 or 10
 **Every 30 days:**
 1. Refresh LinkedIn session cookie
 2. Review creator list (remove/add creators)
-3. Check Apify & OpenAI credit balance
+3. Check Bright Data & OpenAI credit balance
 4. Analyze which posts performed best
 5. Adjust filtering/scoring if needed
 
@@ -126,7 +126,7 @@ items.slice(0, 7) // Change 7 to 5 or 10
 ### Support Links
 
 - n8n Docs: https://docs.n8n.io/
-- Apify LinkedIn Scraper: https://apify.com/apify/linkedin-profile-scraper
+- Bright Data LinkedIn Scraper: https://brightdata.com/apify/linkedin-profile-scraper
 - OpenAI API: https://platform.openai.com/docs
 - Community: https://community.n8n.io/
 
@@ -149,7 +149,7 @@ items.slice(0, 7) // Change 7 to 5 or 10
 Before activating the schedule:
 
 - [ ] Imported workflow successfully
-- [ ] Added Apify API token
+- [ ] Added Bright Data API token
 - [ ] Added OpenAI API key
 - [ ] Connected Google Sheets
 - [ ] Connected Google Drive

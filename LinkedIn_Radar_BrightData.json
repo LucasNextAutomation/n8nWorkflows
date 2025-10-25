@@ -1,0 +1,196 @@
+{
+  "name": "LinkedIn Content Radar (Bright Data)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const creators = [\n  \"https://www.linkedin.com/in/agrim-goyal\",\n  \"https://www.linkedin.com/in/jessievanbreugel\",\n  \"https://www.linkedin.com/in/domingo-valadez\",\n  \"https://www.linkedin.com/in/arthur-morin-girard-824294357\",\n  \"https://www.linkedin.com/in/leadgenwiz\",\n  \"https://www.linkedin.com/in/antonyslumbers\",\n  \"https://www.linkedin.com/in/ottotatton\",\n  \"https://www.linkedin.com/in/nielsklement\",\n  \"https://www.linkedin.com/in/jonathan-peslar\",\n  \"https://www.linkedin.com/in/nicholas-puruczky-113818198\",\n  \"https://www.linkedin.com/in/brandonpassley\",\n  \"https://www.linkedin.com/in/mattlakajev\",\n  \"https://www.linkedin.com/in/duncanrogoff\",\n  \"https://www.linkedin.com/in/teddy-james\",\n  \"https://www.linkedin.com/in/jason-ratcliff-8a416014b\",\n  \"https://www.linkedin.com/in/matt-yellin\",\n  \"https://www.linkedin.com/in/jakeheller1\",\n  \"https://www.linkedin.com/in/jaindl\",\n  \"https://www.linkedin.com/in/tomos-ormsby-63592134b\",\n  \"https://www.linkedin.com/in/toprealestateappraiser\",\n  \"https://www.linkedin.com/in/santosh-srinivas-n0c0de\",\n  \"https://www.linkedin.com/in/michel-lieben\",\n  \"https://www.linkedin.com/in/ivanfalco\",\n  \"https://www.linkedin.com/in/alex-vacca\",\n  \"https://www.linkedin.com/in/grycz-monika\"\n];\n\nreturn creators.map(url => ({ json: { creatorUrl: url } }));"
+      },
+      "id": "2",
+      "name": "Creator List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// BRIGHT DATA SCRAPING - Replace this Code node with HTTP Request\n// This is a PLACEHOLDER that returns mock data\n// \n// TO USE REAL BRIGHT DATA:\n// 1. Delete this node\n// 2. Add HTTP Request node\n// 3. Configure:\n//    - Method: POST\n//    - URL: https://api.brightdata.com/dca/collect\n//    - Authentication: Bearer Token\n//    - Token: {{ $env.BRIGHTDATA_TOKEN }}\n//    - Headers:\n//      * Content-Type: application/json\n//      * X-BrightData-Zone: datacenter (optional)\n//    - Body (JSON):\n//      {\n//        \"url\": \"{{ $json.creatorUrl }}\",\n//        \"format\": \"json\",\n//        \"country\": \"us\",\n//        \"render\": \"html\",\n//        \"wait_for_selector\": \".feed-shared-update-v2\"\n//      }\n// 4. Add retry logic: 3 attempts, 2-5s random delay\n// 5. Add rate limiting: max 50 requests/minute\n\nconst creator = $input.item.json.creatorUrl;\nconst username = creator.split('/in/')[1];\n\n// Mock data for testing\nconst mockPosts = [];\nfor (let i = 0; i < 3; i++) {\n  const daysAgo = Math.floor(Math.random() * 7);\n  const date = new Date();\n  date.setDate(date.getDate() - daysAgo);\n  \n  mockPosts.push({\n    creator: username,\n    creatorName: username.replace(/-/g, ' '),\n    postText: 'Sample post about AI automation and productivity. Replace this node with Bright Data HTTP Request.',\n    postUrl: 'https://www.linkedin.com/posts/' + username + '-activity',\n    postedDate: date.toISOString(),\n    likes: Math.floor(Math.random() * 300) + 100,\n    comments: Math.floor(Math.random() * 50) + 10,\n    contentType: 'text'\n  });\n}\n\nreturn mockPosts.map(post => ({ json: post }));"
+      },
+      "id": "3",
+      "name": "Bright Data Scraper (PLACEHOLDER)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const posts = $input.all();\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n\nconst filtered = posts.filter(item => {\n  const post = item.json;\n  const postDate = new Date(post.postedDate);\n  return postDate >= sevenDaysAgo && post.likes >= 100;\n});\n\nreturn filtered;"
+      },
+      "id": "4",
+      "name": "Filter Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// OPENAI SCORING - Replace with actual OpenAI node\n// \n// TO USE REAL OPENAI:\n// 1. Delete this node\n// 2. Add OpenAI node from library\n// 3. Configure:\n//    - Resource: Chat\n//    - Model: gpt-4-turbo-preview\n//    - System Message: 'You are a LinkedIn content analyst...'\n//    - User Message: Analyze post and rate 1-5 for relevance and value\n// 4. Add your OpenAI API key in credentials\n\nconst post = $input.item.json;\n\nconst relevance = Math.floor(Math.random() * 2) + 4;\nconst valueDepth = Math.floor(Math.random() * 2) + 4;\nconst finalScore = (relevance * 2) + (valueDepth * 3);\n\nconst scoredPost = {\n  creator: post.creator,\n  creatorName: post.creatorName,\n  postText: post.postText,\n  postUrl: post.postUrl,\n  postedDate: post.postedDate,\n  likes: post.likes,\n  comments: post.comments,\n  contentType: post.contentType,\n  relevanceScore: relevance,\n  valueDepthScore: valueDepth,\n  finalScore: finalScore,\n  toneGood: true,\n  leadMagnetOpportunity: Math.random() > 0.5,\n  leadMagnetSuggestion: 'Automation checklist',\n  aiReasoning: 'High-value content'\n};\n\nreturn [{ json: scoredPost }];"
+      },
+      "id": "5",
+      "name": "AI Scoring (PLACEHOLDER)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const posts = $input.all();\n\nposts.sort((a, b) => b.json.finalScore - a.json.finalScore);\n\nreturn posts.slice(0, 15);"
+      },
+      "id": "6",
+      "name": "Rank Top 15",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// OPENAI POST GENERATION - Replace with actual OpenAI node\n// \n// TO USE REAL OPENAI GPT-4:\n// 1. Delete this node\n// 2. Add OpenAI node\n// 3. Configure:\n//    - Resource: Chat\n//    - Model: gpt-4-turbo-preview\n//    - Temperature: 0.7\n//    - System: 'You are a LinkedIn content creator...'\n//    - User: 'Generate new post based on...'\n// 4. Use same OpenAI credentials as scoring node\n\nconst post = $input.item.json;\n\nconst generatedPost = {\n  creator: post.creator,\n  creatorName: post.creatorName,\n  postText: post.postText,\n  postUrl: post.postUrl,\n  likes: post.likes,\n  comments: post.comments,\n  relevanceScore: post.relevanceScore,\n  valueDepthScore: post.valueDepthScore,\n  finalScore: post.finalScore,\n  leadMagnetSuggestion: post.leadMagnetSuggestion,\n  generatedText: 'AI-generated LinkedIn post about automation.\\n\\nKey insights:\\n- Point 1\\n- Point 2\\n- Point 3\\n\\nReplace this with OpenAI GPT-4 generation.',\n  timestamp: new Date().toISOString(),\n  weekOf: new Date().toISOString().split('T')[0]\n};\n\nreturn [{ json: generatedPost }];"
+      },
+      "id": "7",
+      "name": "Generate Posts (PLACEHOLDER)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const posts = $input.all();\n\nconst top7 = posts.slice(0, 7).map((item, index) => {\n  return {\n    json: {\n      rank: index + 1,\n      creator: item.json.creatorName,\n      originalPost: item.json.postText,\n      originalUrl: item.json.postUrl,\n      likes: item.json.likes,\n      comments: item.json.comments,\n      relevanceScore: item.json.relevanceScore,\n      valueDepthScore: item.json.valueDepthScore,\n      finalScore: item.json.finalScore,\n      generatedPost: item.json.generatedText,\n      leadMagnet: item.json.leadMagnetSuggestion,\n      weekOf: item.json.weekOf\n    }\n  };\n});\n\nreturn top7;"
+      },
+      "id": "8",
+      "name": "Select Top 7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Creator List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creator List": {
+      "main": [
+        [
+          {
+            "node": "Bright Data Scraper (PLACEHOLDER)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bright Data Scraper (PLACEHOLDER)": {
+      "main": [
+        [
+          {
+            "node": "Filter Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Posts": {
+      "main": [
+        [
+          {
+            "node": "AI Scoring (PLACEHOLDER)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Scoring (PLACEHOLDER)": {
+      "main": [
+        [
+          {
+            "node": "Rank Top 15",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank Top 15": {
+      "main": [
+        [
+          {
+            "node": "Generate Posts (PLACEHOLDER)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Posts (PLACEHOLDER)": {
+      "main": [
+        [
+          {
+            "node": "Select Top 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

@@ -28,7 +28,7 @@
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              EXTERNAL SERVICES                               │
-│  Apify → OpenAI → Google Sheets → Google Drive             │
+│  Bright Data → OpenAI → Google Sheets → Google Drive             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,7 +46,7 @@
 | **Real-time** | Supabase Realtime | Live updates |
 | **Automation** | n8n (Docker) | Backend workflow engine |
 | **AI** | OpenAI GPT-4 | Analysis & generation |
-| **Scraping** | Apify | LinkedIn data collection |
+| **Scraping** | Bright Data | LinkedIn data collection |
 | **Deployment** | Vercel | Frontend hosting |
 | **Analytics** | Vercel Analytics | Usage tracking |
 
@@ -188,7 +188,7 @@ CREATE TABLE automation_runs (
   openai_calls INTEGER DEFAULT 0,
   openai_tokens_used INTEGER DEFAULT 0,
   openai_cost_usd DECIMAL(10,4) DEFAULT 0,
-  apify_credits_used INTEGER DEFAULT 0,
+  brightdata_credits_used INTEGER DEFAULT 0,
 
   -- Outputs
   google_sheet_url TEXT,
@@ -224,7 +224,7 @@ CREATE TABLE analytics_daily (
 
   -- Cost tracking
   total_openai_cost_usd DECIMAL(10,4) DEFAULT 0,
-  total_apify_credits INTEGER DEFAULT 0,
+  total_brightdata_credits INTEGER DEFAULT 0,
 
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -596,7 +596,7 @@ n8n Workflow:
 **Run History Table**
 - Date/time, Duration, Status
 - Posts scraped/analyzed/generated
-- API costs (OpenAI + Apify)
+- API costs (OpenAI + Bright Data)
 - Actions (View details, Re-run)
 
 **Run Details View**

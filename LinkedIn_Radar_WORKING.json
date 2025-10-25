@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// MOCK SCRAPING - Replace with Apify\n// This simulates scraped LinkedIn posts\n\nconst creator = $input.item.json.creatorUrl;\nconst username = creator.split('/in/')[1];\n\n// Simulate 3 posts per creator\nconst mockPosts = [];\nfor (let i = 0; i < 3; i++) {\n  const daysAgo = Math.floor(Math.random() * 7);\n  const date = new Date();\n  date.setDate(date.getDate() - daysAgo);\n  \n  mockPosts.push({\n    creator: username,\n    creatorName: username.replace(/-/g, ' '),\n    postText: `Sample post ${i + 1} about AI automation and productivity. This would be real LinkedIn content in production.`,\n    postUrl: `https://www.linkedin.com/posts/${username}-activity-${Date.now()}`,\n    postedDate: date.toISOString(),\n    likes: Math.floor(Math.random() * 300) + 100,\n    comments: Math.floor(Math.random() * 50) + 10,\n    contentType: 'text'\n  });\n}\n\nreturn mockPosts.map(post => ({ json: post }));"
+        "jsCode": "// MOCK SCRAPING - Replace with Bright Data\n// This simulates scraped LinkedIn posts\n\nconst creator = $input.item.json.creatorUrl;\nconst username = creator.split('/in/')[1];\n\n// Simulate 3 posts per creator\nconst mockPosts = [];\nfor (let i = 0; i < 3; i++) {\n  const daysAgo = Math.floor(Math.random() * 7);\n  const date = new Date();\n  date.setDate(date.getDate() - daysAgo);\n  \n  mockPosts.push({\n    creator: username,\n    creatorName: username.replace(/-/g, ' '),\n    postText: `Sample post ${i + 1} about AI automation and productivity. This would be real LinkedIn content in production.`,\n    postUrl: `https://www.linkedin.com/posts/${username}-activity-${Date.now()}`,\n    postedDate: date.toISOString(),\n    likes: Math.floor(Math.random() * 300) + 100,\n    comments: Math.floor(Math.random() * 50) + 10,\n    contentType: 'text'\n  });\n}\n\nreturn mockPosts.map(post => ({ json: post }));"
       },
       "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
       "name": "Scrape Posts",
@@ -39,7 +39,7 @@
       "typeVersion": 2,
       "position": [680, 300],
       "notesInFlow": true,
-      "notes": "Replace with Apify LinkedIn scraper"
+      "notes": "Replace with Bright Data LinkedIn scraper"
     },
     {
       "parameters": {

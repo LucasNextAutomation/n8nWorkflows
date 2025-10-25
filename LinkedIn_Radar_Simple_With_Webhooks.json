@@ -90,14 +90,14 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mock scraping - replace with actual Apify call\nconst creator = $input.item.json.creators;\n\n// Simulate scraped posts\nconst mockPosts = [\n  {\n    creator: creator.split('/in/')[1],\n    creatorName: 'Creator Name',\n    postText: 'Sample LinkedIn post about AI and automation...',\n    postUrl: 'https://www.linkedin.com/posts/sample',\n    postedDate: new Date().toISOString(),\n    likes: 150,\n    comments: 12,\n    contentType: 'text'\n  }\n];\n\nreturn mockPosts.map(post => ({ json: post }));"
+        "jsCode": "// Mock scraping - replace with actual Bright Data call\nconst creator = $input.item.json.creators;\n\n// Simulate scraped posts\nconst mockPosts = [\n  {\n    creator: creator.split('/in/')[1],\n    creatorName: 'Creator Name',\n    postText: 'Sample LinkedIn post about AI and automation...',\n    postUrl: 'https://www.linkedin.com/posts/sample',\n    postedDate: new Date().toISOString(),\n    likes: 150,\n    comments: 12,\n    contentType: 'text'\n  }\n];\n\nreturn mockPosts.map(post => ({ json: post }));"
       },
       "id": "scrape-posts",
       "name": "Scrape Posts (Mock)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1250, 300],
-      "notes": "Replace this with actual Apify LinkedIn scraper call"
+      "notes": "Replace this with actual Bright Data LinkedIn scraper call"
     },
     {
       "parameters": {

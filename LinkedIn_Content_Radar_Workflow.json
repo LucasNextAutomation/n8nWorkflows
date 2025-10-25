@@ -84,11 +84,11 @@
         "options": {}
       },
       "id": "apify-scraper",
-      "name": "Apify LinkedIn Scraper",
+      "name": "Bright Data LinkedIn Scraper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [850, 300],
-      "notes": "Scrapes LinkedIn posts using Apify. You'll need to add your Apify API token in credentials."
+      "notes": "Scrapes LinkedIn posts using Bright Data. You'll need to add your Bright Data API token in credentials."
     },
     {
       "parameters": {
@@ -346,7 +346,7 @@
       "main": [
         [
           {
-            "node": "Apify LinkedIn Scraper",
+            "node": "Bright Data LinkedIn Scraper",
             "type": "main",
             "index": 0
           },
@@ -358,7 +358,7 @@
         ]
       ]
     },
-    "Apify LinkedIn Scraper": {
+    "Bright Data LinkedIn Scraper": {
       "main": [
         [
           {
