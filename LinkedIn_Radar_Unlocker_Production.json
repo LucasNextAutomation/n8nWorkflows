@@ -1,0 +1,239 @@
+{
+  "name": "LinkedIn Content Radar - Bright Data Unlocker",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;\nconst timestamp = new Date().toISOString();\n\nreturn [{\n  json: {\n    runId,\n    timestamp,\n    status: 'started',\n    creatorsTotal: 25\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Generate Run ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "creators",
+              "value": "=[\"https://www.linkedin.com/in/agrim-goyal\",\"https://www.linkedin.com/in/jessievanbreugel\",\"https://www.linkedin.com/in/domingo-valadez\",\"https://www.linkedin.com/in/arthur-morin-girard-824294357\",\"https://www.linkedin.com/in/leadgenwiz\",\"https://www.linkedin.com/in/antonyslumbers\",\"https://www.linkedin.com/in/ottotatton\",\"https://www.linkedin.com/in/nielsklement\",\"https://www.linkedin.com/in/jonathan-peslar\",\"https://www.linkedin.com/in/nicholas-puruczky-113818198\",\"https://www.linkedin.com/in/brandonpassley\",\"https://www.linkedin.com/in/mattlakajev\",\"https://www.linkedin.com/in/duncanrogoff\",\"https://www.linkedin.com/in/teddy-james\",\"https://www.linkedin.com/in/jason-ratcliff-8a416014b\",\"https://www.linkedin.com/in/matt-yellin\",\"https://www.linkedin.com/in/jakeheller1\",\"https://www.linkedin.com/in/jaindl\",\"https://www.linkedin.com/in/tomos-ormsby-63592134b\",\"https://www.linkedin.com/in/toprealestateappraiser\",\"https://www.linkedin.com/in/santosh-srinivas-n0c0de\",\"https://www.linkedin.com/in/michel-lieben\",\"https://www.linkedin.com/in/ivanfalco\",\"https://www.linkedin.com/in/alex-vacca\",\"https://www.linkedin.com/in/grycz-monika\"]",
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Load 25 Creator URLs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert profile URLs to recent-activity URLs\nconst creators = $input.item.json.creators;\n\nconst activityUrls = creators.map(url => {\n  // Remove trailing slash if present\n  const cleanUrl = url.replace(/\\/$/, '');\n  \n  // Add /recent-activity/all/ to get all posts\n  return {\n    json: {\n      profileUrl: url,\n      activityUrl: `${cleanUrl}/recent-activity/all/`,\n      creator: url.split('/in/')[1]?.replace(/\\/$/, '') || 'unknown'\n    }\n  };\n});\n\nreturn activityUrls;"
+      },
+      "id": "4",
+      "name": "Convert to Activity URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "creators",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Split Creators",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rate Limit: Random delay 2-5 seconds\nconst delay = Math.floor(Math.random() * 3000) + 2000;\nawait new Promise(resolve => setTimeout(resolve, delay));\n\nreturn [$input.item];"
+      },
+      "id": "6",
+      "name": "Rate Limit Delay",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brightdata.com/request",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 8d6d87d5de48ae3e4e78cc8a7df1d1945bfb26d4af7775a8215e2b0ac2dee1c6"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"zone\": \"scraping_linkedin\",\n  \"url\": \"{{ $json.activityUrl }}\",\n  \"format\": \"raw\",\n  \"country\": \"us\"\n}",
+        "options": {}
+      },
+      "id": "7",
+      "name": "Bright Data Unlocker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse LinkedIn HTML response to extract posts\nconst html = $input.item.json.body || $input.item.json;\nconst creator = $input.item.json.creator || 'unknown';\nconst profileUrl = $input.item.json.profileUrl || '';\n\n// Helper function to extract text between patterns\nfunction extractBetween(str, start, end) {\n  const startIdx = str.indexOf(start);\n  if (startIdx === -1) return null;\n  const startPos = startIdx + start.length;\n  const endIdx = str.indexOf(end, startPos);\n  if (endIdx === -1) return null;\n  return str.substring(startPos, endIdx).trim();\n}\n\n// Helper function to strip HTML tags\nfunction stripHtml(html) {\n  return html\n    .replace(/<[^>]+>/g, '')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// LinkedIn post patterns (these are approximations - may need adjustment)\nconst posts = [];\n\n// Try to find post containers in HTML\n// LinkedIn typically uses data-urn or data-id attributes for posts\nconst postPattern = /data-urn=\"urn:li:activity:(\\d+)\"/g;\nlet match;\nlet postIds = [];\n\nwhile ((match = postPattern.exec(html)) !== null) {\n  postIds.push(match[1]);\n}\n\n// For each post ID, try to extract content\nfor (const postId of postIds) {\n  try {\n    // Find the section containing this post\n    const postStart = html.indexOf(`urn:li:activity:${postId}`);\n    if (postStart === -1) continue;\n    \n    // Extract a reasonable chunk around the post\n    const postChunk = html.substring(postStart, postStart + 5000);\n    \n    // Try to extract post text (look for common patterns)\n    let postText = '';\n    const textMatch = postChunk.match(/\"commentary\"[^>]*>([^<]+)</);\n    if (textMatch) {\n      postText = stripHtml(textMatch[1]);\n    }\n    \n    // Try to extract engagement metrics\n    const likesMatch = postChunk.match(/(\\d+)\\s*(likes?|reactions?)/i);\n    const commentsMatch = postChunk.match(/(\\d+)\\s*comments?/i);\n    \n    const likes = likesMatch ? parseInt(likesMatch[1]) : 0;\n    const comments = commentsMatch ? parseInt(commentsMatch[1]) : 0;\n    \n    // Try to extract date\n    let postedDate = new Date().toISOString();\n    const dateMatch = postChunk.match(/(\\d+[a-z]+)\\s*ago/i);\n    if (dateMatch) {\n      const timeAgo = dateMatch[1];\n      // Parse relative time (\"2d ago\", \"3w ago\", etc.)\n      const num = parseInt(timeAgo);\n      const unit = timeAgo.replace(/\\d+/, '').trim();\n      \n      const date = new Date();\n      if (unit.startsWith('m')) { // minutes\n        date.setMinutes(date.getMinutes() - num);\n      } else if (unit.startsWith('h')) { // hours\n        date.setHours(date.getHours() - num);\n      } else if (unit.startsWith('d')) { // days\n        date.setDate(date.getDate() - num);\n      } else if (unit.startsWith('w')) { // weeks\n        date.setDate(date.getDate() - (num * 7));\n      } else if (unit.startsWith('mo')) { // months\n        date.setMonth(date.getMonth() - num);\n      }\n      postedDate = date.toISOString();\n    }\n    \n    // Only include if we got meaningful content\n    if (postText.length > 10) {\n      posts.push({\n        json: {\n          creator,\n          profileUrl,\n          postId,\n          postUrl: `https://www.linkedin.com/feed/update/urn:li:activity:${postId}`,\n          postText,\n          likes,\n          comments,\n          postedDate,\n          isReshare: false // assume not reshare for now\n        }\n      });\n    }\n  } catch (error) {\n    // Skip this post if parsing fails\n    continue;\n  }\n}\n\n// If no posts found with first method, try alternative parsing\nif (posts.length === 0) {\n  // LinkedIn might return JSON in a script tag\n  const jsonMatch = html.match(/<script[^>]*>\\s*window\\.__INITIAL_STATE__\\s*=\\s*({[^<]+})<\\/script>/);\n  if (jsonMatch) {\n    try {\n      const data = JSON.parse(jsonMatch[1]);\n      // Parse the JSON structure (structure varies, this is a starting point)\n      // You may need to adjust this based on actual response\n    } catch (e) {\n      // JSON parsing failed\n    }\n  }\n}\n\nreturn posts.length > 0 ? posts : [{\n  json: {\n    creator,\n    profileUrl,\n    error: 'No posts extracted',\n    rawHtmlLength: html.length\n  }\n}];"
+      },
+      "id": "8",
+      "name": "Parse LinkedIn HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter: 7 days, 100+ likes, no reshares\nconst posts = $input.all().filter(item => !item.json.error);\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n\nconst filtered = posts.filter(item => {\n  const post = item.json;\n  const postDate = new Date(post.postedDate);\n  return postDate >= sevenDaysAgo && post.likes >= 100 && !post.isReshare;\n});\n\nreturn filtered;"
+      },
+      "id": "9",
+      "name": "Filter Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deduplication by URL\nconst posts = $input.all();\nconst seen = new Set();\nconst unique = [];\n\nfor (const item of posts) {\n  const postUrl = item.json.postUrl;\n  if (!seen.has(postUrl)) {\n    seen.add(postUrl);\n    unique.push(item);\n  }\n}\n\nreturn unique;"
+      },
+      "id": "10",
+      "name": "Deduplication",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// OpenAI GPT-4 Scoring\nconst post = $input.item.json;\nconst apiKey = $env.OPENAI_API_KEY;\n\nconst prompt = `Analyze this LinkedIn post:\n\nPOST: ${post.postText}\nAUTHOR: ${post.creator}\nLIKES: ${post.likes}\nCOMMENTS: ${post.comments}\n\nRate:\n1. Relevance (1-5): How relevant is this to AI/automation?\n2. Value (1-5): How actionable and valuable?\n3. Lead Magnet: Could this inspire a downloadable resource?\n\nRespond with JSON only:\n{\n  \"relevanceScore\": 1-5,\n  \"valueDepthScore\": 1-5,\n  \"leadMagnetSuggestion\": \"string or null\"\n}`;\n\ntry {\n  const response = await fetch('https://api.openai.com/v1/chat/completions', {\n    method: 'POST',\n    headers: {\n      'Authorization': `Bearer ${apiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      model: 'gpt-4',\n      messages: [\n        { role: 'system', content: 'You are a content analyst. Respond with JSON only.' },\n        { role: 'user', content: prompt }\n      ],\n      temperature: 0.3,\n      max_tokens: 200\n    })\n  });\n\n  const result = await response.json();\n  const scores = JSON.parse(result.choices[0].message.content);\n\n  return [{\n    json: {\n      ...post,\n      relevanceScore: scores.relevanceScore,\n      valueDepthScore: scores.valueDepthScore,\n      finalScore: (scores.relevanceScore * 2) + (scores.valueDepthScore * 3),\n      leadMagnetSuggestion: scores.leadMagnetSuggestion,\n      openaiTokens: result.usage.total_tokens\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      ...post,\n      relevanceScore: 0,\n      valueDepthScore: 0,\n      finalScore: 0,\n      error: error.message\n    }\n  }];\n}"
+      },
+      "id": "11",
+      "name": "OpenAI Score Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort by final score and select top 15\nconst posts = $input.all();\nposts.sort((a, b) => b.json.finalScore - a.json.finalScore);\nconst top15 = posts.slice(0, 15);\nreturn top15;"
+      },
+      "id": "12",
+      "name": "Rank Top 15",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select top 7\nconst top15 = $input.all();\nconst top7 = top15.slice(0, 7);\nreturn top7;"
+      },
+      "id": "13",
+      "name": "Select Top 7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// OpenAI GPT-4 Generate Posts\nconst post = $input.item.json;\nconst apiKey = $env.OPENAI_API_KEY;\n\nconst prompt = `Create a NEW LinkedIn post inspired by:\n\nORIGINAL:\n${post.postText}\n\nSTATS: ${post.likes} likes, ${post.comments} comments\n\nREQUIREMENTS:\n- First person, conversational\n- AI/automation focus\n- Hook in first line\n- 150-250 words\n- 3-5 hashtags\n- Don't copy - create new value`;\n\ntry {\n  const response = await fetch('https://api.openai.com/v1/chat/completions', {\n    method: 'POST',\n    headers: {\n      'Authorization': `Bearer ${apiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      model: 'gpt-4',\n      messages: [\n        { role: 'system', content: 'You are a LinkedIn content creator.' },\n        { role: 'user', content: prompt }\n      ],\n      temperature: 0.7,\n      max_tokens: 500\n    })\n  });\n\n  const result = await response.json();\n  const generatedPost = result.choices[0].message.content;\n\n  return [{\n    json: {\n      rank: $itemIndex + 1,\n      creator: post.creator,\n      originalUrl: post.postUrl,\n      originalText: post.postText,\n      originalLikes: post.likes,\n      originalComments: post.comments,\n      postedDate: post.postedDate,\n      relevanceScore: post.relevanceScore,\n      valueDepthScore: post.valueDepthScore,\n      finalScore: post.finalScore,\n      generatedPost,\n      leadMagnet: post.leadMagnetSuggestion,\n      weekOf: new Date().toISOString().split('T')[0]\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      ...post,\n      generatedPost: null,\n      error: error.message\n    }\n  }];\n}"
+      },
+      "id": "14",
+      "name": "OpenAI Generate Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Generated Posts",
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        }
+      },
+      "id": "15",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [3320, 400]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Generate Run ID", "type": "main", "index": 0}]]
+    },
+    "Generate Run ID": {
+      "main": [[{"node": "Load 25 Creator URLs", "type": "main", "index": 0}]]
+    },
+    "Load 25 Creator URLs": {
+      "main": [[{"node": "Convert to Activity URLs", "type": "main", "index": 0}]]
+    },
+    "Convert to Activity URLs": {
+      "main": [[{"node": "Split Creators", "type": "main", "index": 0}]]
+    },
+    "Split Creators": {
+      "main": [[{"node": "Rate Limit Delay", "type": "main", "index": 0}]]
+    },
+    "Rate Limit Delay": {
+      "main": [[{"node": "Bright Data Unlocker", "type": "main", "index": 0}]]
+    },
+    "Bright Data Unlocker": {
+      "main": [[{"node": "Parse LinkedIn HTML", "type": "main", "index": 0}]]
+    },
+    "Parse LinkedIn HTML": {
+      "main": [[{"node": "Filter Posts", "type": "main", "index": 0}]]
+    },
+    "Filter Posts": {
+      "main": [[{"node": "Deduplication", "type": "main", "index": 0}]]
+    },
+    "Deduplication": {
+      "main": [[{"node": "OpenAI Score Posts", "type": "main", "index": 0}]]
+    },
+    "OpenAI Score Posts": {
+      "main": [[{"node": "Rank Top 15", "type": "main", "index": 0}]]
+    },
+    "Rank Top 15": {
+      "main": [[{"node": "Select Top 7", "type": "main", "index": 0}]]
+    },
+    "Select Top 7": {
+      "main": [[{"node": "OpenAI Generate Posts", "type": "main", "index": 0}]]
+    },
+    "OpenAI Generate Posts": {
+      "main": [[{"node": "Google Sheets", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-25T12:00:00.000Z",
+  "versionId": "unlocker-v1"
+}
