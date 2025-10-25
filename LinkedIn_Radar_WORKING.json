@@ -1,0 +1,208 @@
+{
+  "name": "LinkedIn Content Radar - Working",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * 0"
+            }
+          ],
+          "timezone": "Europe/Paris"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// List of 25 LinkedIn creator URLs\nconst creators = [\n  \"https://www.linkedin.com/in/agrim-goyal\",\n  \"https://www.linkedin.com/in/jessievanbreugel\",\n  \"https://www.linkedin.com/in/domingo-valadez\",\n  \"https://www.linkedin.com/in/arthur-morin-girard-824294357\",\n  \"https://www.linkedin.com/in/leadgenwiz\",\n  \"https://www.linkedin.com/in/antonyslumbers\",\n  \"https://www.linkedin.com/in/ottotatton\",\n  \"https://www.linkedin.com/in/nielsklement\",\n  \"https://www.linkedin.com/in/jonathan-peslar\",\n  \"https://www.linkedin.com/in/nicholas-puruczky-113818198\",\n  \"https://www.linkedin.com/in/brandonpassley\",\n  \"https://www.linkedin.com/in/mattlakajev\",\n  \"https://www.linkedin.com/in/duncanrogoff\",\n  \"https://www.linkedin.com/in/teddy-james\",\n  \"https://www.linkedin.com/in/jason-ratcliff-8a416014b\",\n  \"https://www.linkedin.com/in/matt-yellin\",\n  \"https://www.linkedin.com/in/jakeheller1\",\n  \"https://www.linkedin.com/in/jaindl\",\n  \"https://www.linkedin.com/in/tomos-ormsby-63592134b\",\n  \"https://www.linkedin.com/in/toprealestateappraiser\",\n  \"https://www.linkedin.com/in/santosh-srinivas-n0c0de\",\n  \"https://www.linkedin.com/in/michel-lieben\",\n  \"https://www.linkedin.com/in/ivanfalco\",\n  \"https://www.linkedin.com/in/alex-vacca\",\n  \"https://www.linkedin.com/in/grycz-monika\"\n];\n\nreturn creators.map(url => ({ json: { creatorUrl: url } }));"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Creator List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// MOCK SCRAPING - Replace with Apify\n// This simulates scraped LinkedIn posts\n\nconst creator = $input.item.json.creatorUrl;\nconst username = creator.split('/in/')[1];\n\n// Simulate 3 posts per creator\nconst mockPosts = [];\nfor (let i = 0; i < 3; i++) {\n  const daysAgo = Math.floor(Math.random() * 7);\n  const date = new Date();\n  date.setDate(date.getDate() - daysAgo);\n  \n  mockPosts.push({\n    creator: username,\n    creatorName: username.replace(/-/g, ' '),\n    postText: `Sample post ${i + 1} about AI automation and productivity. This would be real LinkedIn content in production.`,\n    postUrl: `https://www.linkedin.com/posts/${username}-activity-${Date.now()}`,\n    postedDate: date.toISOString(),\n    likes: Math.floor(Math.random() * 300) + 100,\n    comments: Math.floor(Math.random() * 50) + 10,\n    contentType: 'text'\n  });\n}\n\nreturn mockPosts.map(post => ({ json: post }));"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Scrape Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "notesInFlow": true,
+      "notes": "Replace with Apify LinkedIn scraper"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter posts from last 7 days with 100+ likes\nconst posts = $input.all();\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n\nconst filtered = posts.filter(item => {\n  const post = item.json;\n  const postDate = new Date(post.postedDate);\n  return postDate >= sevenDaysAgo && post.likes >= 100;\n});\n\nreturn filtered;"
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "name": "Filter Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// MOCK AI SCORING - Replace with OpenAI\n// This simulates GPT-4 analysis\n\nconst post = $input.item.json;\n\n// Simulate AI scores\nconst relevance = Math.floor(Math.random() * 2) + 4; // 4-5\nconst valueDepth = Math.floor(Math.random() * 2) + 4; // 4-5\nconst finalScore = (relevance * 2) + (valueDepth * 3);\n\nconst scoredPost = {\n  ...post,\n  relevanceScore: relevance,\n  valueDepthScore: valueDepth,\n  finalScore: finalScore,\n  toneGood: true,\n  leadMagnetOpportunity: Math.random() > 0.5,\n  leadMagnetSuggestion: Math.random() > 0.5 ? 'Automation checklist' : 'None',\n  aiReasoning: 'High-value content about practical automation'\n};\n\nreturn [{ json: scoredPost }];"
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "name": "AI Scoring",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "notesInFlow": true,
+      "notes": "Replace with OpenAI API"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rank posts by final score and keep top 15\nconst posts = $input.all();\n\n// Sort by finalScore descending\nposts.sort((a, b) => b.json.finalScore - a.json.finalScore);\n\n// Return top 15\nreturn posts.slice(0, 15);"
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "name": "Rank Top 15",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// MOCK POST GENERATION - Replace with OpenAI GPT-4\n// This simulates generated LinkedIn posts\n\nconst post = $input.item.json;\n\nconst generatedPost = {\n  ...post,\n  generatedText: `AI-generated post based on: ${post.postText.substring(0, 50)}...\\n\\nThis would be a fully generated LinkedIn post in production, written in your brand voice.\\n\\nKey insights:\\n- Point 1\\n- Point 2\\n- Point 3\\n\\nWhat do you think?`,\n  timestamp: new Date().toISOString(),\n  weekOf: new Date().toISOString().split('T')[0]\n};\n\nreturn [{ json: generatedPost }];"
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-567890123456",
+      "name": "Generate Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "notesInFlow": true,
+      "notes": "Replace with OpenAI GPT-4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select top 7 posts for final output\nconst posts = $input.all();\n\nconst top7 = posts.slice(0, 7).map((item, index) => {\n  return {\n    json: {\n      rank: index + 1,\n      creator: item.json.creatorName,\n      originalPost: item.json.postText,\n      originalUrl: item.json.postUrl,\n      likes: item.json.likes,\n      comments: item.json.comments,\n      relevanceScore: item.json.relevanceScore,\n      valueDepthScore: item.json.valueDepthScore,\n      finalScore: item.json.finalScore,\n      generatedPost: item.json.generatedText,\n      leadMagnet: item.json.leadMagnetSuggestion,\n      weekOf: item.json.weekOf\n    }\n  };\n});\n\nreturn top7;"
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-678901234567",
+      "name": "Select Top 7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output summary\nconst posts = $input.all();\n\nconst summary = {\n  totalPosts: posts.length,\n  weekOf: posts[0]?.json.weekOf || new Date().toISOString().split('T')[0],\n  posts: posts.map(p => ({\n    rank: p.json.rank,\n    creator: p.json.creator,\n    score: p.json.finalScore,\n    preview: p.json.generatedPost.substring(0, 100) + '...'\n  }))\n};\n\nreturn [{ json: summary }];"
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-789012345678",
+      "name": "Output Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Creator List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creator List": {
+      "main": [
+        [
+          {
+            "node": "Scrape Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Posts": {
+      "main": [
+        [
+          {
+            "node": "Filter Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Posts": {
+      "main": [
+        [
+          {
+            "node": "AI Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Scoring": {
+      "main": [
+        [
+          {
+            "node": "Rank Top 15",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank Top 15": {
+      "main": [
+        [
+          {
+            "node": "Generate Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Posts": {
+      "main": [
+        [
+          {
+            "node": "Select Top 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Top 7": {
+      "main": [
+        [
+          {
+            "node": "Output Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-25T00:00:00.000Z",
+  "versionId": "1.0"
+}
