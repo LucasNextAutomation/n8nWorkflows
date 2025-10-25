@@ -1,0 +1,682 @@
+{
+  "name": "Weekly LinkedIn Competitive Content Radar (Enhanced with Webhooks)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * 0"
+            }
+          ],
+          "timezone": "Europe/Paris"
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger - Every Sunday 2PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate unique run ID\nconst runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;\n$input.first().json.runId = runId;\nreturn [$input.first()];"
+      },
+      "id": "generate-run-id",
+      "name": "Generate Run ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event",
+              "value": "run_started"
+            },
+            {
+              "name": "run_id",
+              "value": "={{ $json.runId }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "name": "creators_count",
+              "value": 25
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "webhook-run-started",
+      "name": "Webhook: Run Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "notes": "Notifies dashboard that automation has started"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "creators",
+              "value": "=[\n  \"https://www.linkedin.com/in/agrim-goyal\",\n  \"https://www.linkedin.com/in/jessievanbreugel\",\n  \"https://www.linkedin.com/in/domingo-valadez\",\n  \"https://www.linkedin.com/in/arthur-morin-girard-824294357\",\n  \"https://www.linkedin.com/in/leadgenwiz\",\n  \"https://www.linkedin.com/in/antonyslumbers\",\n  \"https://www.linkedin.com/in/ottotatton\",\n  \"https://www.linkedin.com/in/nielsklement\",\n  \"https://www.linkedin.com/in/jonathan-peslar\",\n  \"https://www.linkedin.com/in/nicholas-puruczky-113818198\",\n  \"https://www.linkedin.com/in/brandonpassley\",\n  \"https://www.linkedin.com/in/mattlakajev\",\n  \"https://www.linkedin.com/in/duncanrogoff\",\n  \"https://www.linkedin.com/in/teddy-james\",\n  \"https://www.linkedin.com/in/jason-ratcliff-8a416014b\",\n  \"https://www.linkedin.com/in/matt-yellin\",\n  \"https://www.linkedin.com/in/jakeheller1\",\n  \"https://www.linkedin.com/in/jaindl\",\n  \"https://www.linkedin.com/in/tomos-ormsby-63592134b\",\n  \"https://www.linkedin.com/in/toprealestateappraiser\",\n  \"https://www.linkedin.com/in/santosh-srinivas-n0c0de\",\n  \"https://www.linkedin.com/in/michel-lieben\",\n  \"https://www.linkedin.com/in/ivanfalco\",\n  \"https://www.linkedin.com/in/alex-vacca\",\n  \"https://www.linkedin.com/in/grycz-monika\"\n]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "creator-list",
+      "name": "25 Target LinkedIn Creators",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [850, 300],
+      "notes": "Updated with confirmed 25 creator profiles"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "creators",
+        "options": {}
+      },
+      "id": "split-creators",
+      "name": "Split Into Items",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~linkedin-profile-scraper/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $credentials.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "startUrls",
+              "value": "=[{ \"url\": \"{{ $json.creators }}\" }]"
+            },
+            {
+              "name": "includeRecentPosts",
+              "value": "true"
+            },
+            {
+              "name": "maxPostsPerProfile",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "apify-scraper",
+      "name": "Apify LinkedIn Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and filter posts from the last 7 days with high engagement\nconst items = $input.all();\nconst filteredPosts = [];\n\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n\nfor (const item of items) {\n  const data = item.json;\n  \n  if (!data.posts || !Array.isArray(data.posts)) continue;\n  \n  for (const post of data.posts) {\n    const postDate = new Date(post.postedAt || post.publishedAt || post.date);\n    \n    if (\n      postDate >= sevenDaysAgo &&\n      (post.likes || post.numLikes || 0) >= 100 &&\n      !post.isReshare &&\n      !post.isRepost &&\n      post.text &&\n      post.text.trim().length > 50\n    ) {\n      filteredPosts.push({\n        creator: data.publicIdentifier || data.username,\n        creatorName: data.fullName || data.name,\n        postText: post.text,\n        postUrl: post.url || post.postUrl,\n        postedDate: post.postedAt || post.publishedAt || post.date,\n        likes: post.likes || post.numLikes || 0,\n        comments: post.comments || post.numComments || 0,\n        contentType: post.contentType || 'text',\n        imageUrl: post.imageUrl || null\n      });\n    }\n  }\n}\n\nreturn filteredPosts.map(post => ({ json: post }));"
+      },
+      "id": "filter-posts",
+      "name": "Filter Posts (7 days, 100+ likes)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event",
+              "value": "posts_scraped"
+            },
+            {
+              "name": "run_id",
+              "value": "={{ $('Generate Run ID').first().json.runId }}"
+            },
+            {
+              "name": "posts",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "webhook-posts-scraped",
+      "name": "Webhook: Posts Scraped",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, 200],
+      "notes": "Sends scraped posts data to dashboard"
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": "gpt-4-turbo-preview",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an AI content analyst specializing in LinkedIn content in the AI/automation niche. You will rate posts on multiple dimensions."
+            },
+            {
+              "role": "user",
+              "content": "=Analyze this LinkedIn post and provide ratings:\n\nPost: {{ $json.postText }}\n\nProvide your analysis in this exact JSON format:\n{\n  \"relevance\": <number 1-5>,\n  \"valueDepth\": <number 1-5>,\n  \"toneGood\": <true/false>,\n  \"leadMagnetOpportunity\": <true/false>,\n  \"leadMagnetSuggestion\": \"<suggestion or empty string>\",\n  \"reasoning\": \"<brief explanation>\"\n}\n\nCriteria:\n- Relevance (1-5): How relevant is this to the AI/automation niche?\n- Value Depth (1-5): How actionable and insightful is this post?\n- Tone Good: Is the tone conversational and professional?\n- Lead Magnet Opportunity: Does this suggest a downloadable resource?\n- Lead Magnet Suggestion: What type of resource would work?"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 500
+        },
+        "requestOptions": {}
+      },
+      "id": "openai-scoring",
+      "name": "OpenAI Post Analysis & Scoring",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.3,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI response and calculate final score\nconst items = $input.all();\nconst scoredPosts = [];\n\nfor (const item of items) {\n  try {\n    const aiResponse = item.json.message?.content || item.json.text || '';\n    \n    let analysis;\n    const jsonMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      analysis = JSON.parse(jsonMatch[0]);\n    } else {\n      analysis = {\n        relevance: 3,\n        valueDepth: 3,\n        toneGood: true,\n        leadMagnetOpportunity: false,\n        leadMagnetSuggestion: '',\n        reasoning: 'Could not parse AI response'\n      };\n    }\n    \n    const finalScore = (analysis.relevance * 2) + (analysis.valueDepth * 3);\n    \n    const originalData = $('Filter Posts (7 days, 100+ likes)').item.json;\n    \n    scoredPosts.push({\n      json: {\n        ...originalData,\n        relevanceScore: analysis.relevance,\n        valueDepthScore: analysis.valueDepth,\n        toneGood: analysis.toneGood,\n        leadMagnetOpportunity: analysis.leadMagnetOpportunity,\n        leadMagnetSuggestion: analysis.leadMagnetSuggestion || '',\n        aiReasoning: analysis.reasoning,\n        finalScore: finalScore\n      }\n    });\n  } catch (error) {\n    console.log('Error processing post:', error);\n  }\n}\n\nscoredPosts.sort((a, b) => b.json.finalScore - a.json.finalScore);\nreturn scoredPosts.slice(0, 15);"
+      },
+      "id": "calculate-scores",
+      "name": "Calculate & Rank (Top 15)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event",
+              "value": "analysis_complete"
+            },
+            {
+              "name": "run_id",
+              "value": "={{ $('Generate Run ID').first().json.runId }}"
+            },
+            {
+              "name": "analyzed_posts",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "webhook-analysis-complete",
+      "name": "Webhook: Analysis Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2050, 300],
+      "notes": "Sends analysis results to dashboard"
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": "gpt-4-turbo-preview",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a LinkedIn content creator for an AI/automation agency that builds real automations and tests them with clients. Write posts that sound natural, professional, and valuable - like a human expert sharing genuine insights from hands-on experience."
+            },
+            {
+              "role": "user",
+              "content": "=Based on this high-performing LinkedIn post, write a NEW original post for our automation/AI agency brand.\n\nOriginal post that performed well:\n---\n{{ $json.postText }}\n---\n\nOriginal post stats:\n- Likes: {{ $json.likes }}\n- Comments: {{ $json.comments }}\n- Relevance Score: {{ $json.relevanceScore }}/5\n- Value Depth: {{ $json.valueDepthScore }}/5\n\nWrite a new post that:\n✓ Sounds like a human from a team that builds automations\n✓ Is conversational and professional\n✓ Is short and readable (200-400 words max)\n✓ Provides real value and actionable insights\n✓ Includes a relevant CTA if appropriate\n✓ Uses line breaks for readability\n✓ Does NOT copy the original - be inspired but create something new\n\nReturn ONLY the post text, no explanations or meta-commentary."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 800
+        },
+        "requestOptions": {}
+      },
+      "id": "generate-posts",
+      "name": "GPT Generate Brand Posts",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.3,
+      "position": [2050, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select the best 7 posts from the top 15\nconst items = $input.all();\n\nconst top7Posts = items.slice(0, 7).map((item, index) => {\n  const generatedPost = item.json.message?.content || item.json.text || item.json.postText;\n  const originalData = $('Calculate & Rank (Top 15)').item.json;\n  \n  return {\n    json: {\n      rank: index + 1,\n      creator: originalData.creatorName || originalData.creator,\n      originalPostText: originalData.postText,\n      originalUrl: originalData.postUrl,\n      postedDate: originalData.postedDate,\n      likes: originalData.likes,\n      comments: originalData.comments,\n      relevanceScore: originalData.relevanceScore,\n      valueDepthScore: originalData.valueDepthScore,\n      finalScore: originalData.finalScore,\n      generatedPost: generatedPost.trim(),\n      leadMagnetSuggestion: originalData.leadMagnetSuggestion || 'None',\n      timestamp: new Date().toISOString(),\n      weekOf: new Date().toISOString().split('T')[0]\n    }\n  };\n});\n\nreturn top7Posts;"
+      },
+      "id": "select-top-7",
+      "name": "Select Top 7 Final Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event",
+              "value": "generation_complete"
+            },
+            {
+              "name": "run_id",
+              "value": "={{ $('Generate Run ID').first().json.runId }}"
+            },
+            {
+              "name": "generated_posts",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "webhook-generation-complete",
+      "name": "Webhook: Generation Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2450, 400],
+      "notes": "Sends generated posts to dashboard"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $credentials.spreadsheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "LinkedIn Content Radar",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Rank": "={{ $json.rank }}",
+            "Week Of": "={{ $json.weekOf }}",
+            "Creator": "={{ $json.creator }}",
+            "Original Post": "={{ $json.originalPostText }}",
+            "Original URL": "={{ $json.originalUrl }}",
+            "Posted Date": "={{ $json.postedDate }}",
+            "Likes": "={{ $json.likes }}",
+            "Comments": "={{ $json.comments }}",
+            "Relevance Score": "={{ $json.relevanceScore }}",
+            "Value Depth": "={{ $json.valueDepthScore }}",
+            "Final Score": "={{ $json.finalScore }}",
+            "Generated Post": "={{ $json.generatedPost }}",
+            "Lead Magnet": "={{ $json.leadMagnetSuggestion }}",
+            "Timestamp": "={{ $json.timestamp }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "google-sheets-output",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [2450, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate PDF content from the 7 posts\nconst items = $input.all();\nconst weekOf = items[0]?.json?.weekOf || new Date().toISOString().split('T')[0];\n\nlet htmlContent = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body {\n      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\n      max-width: 800px;\n      margin: 40px auto;\n      padding: 20px;\n      background: #f5f5f5;\n    }\n    .header {\n      text-align: center;\n      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n      color: white;\n      padding: 40px 20px;\n      border-radius: 10px;\n      margin-bottom: 30px;\n    }\n    .header h1 {\n      margin: 0;\n      font-size: 32px;\n    }\n    .header p {\n      margin: 10px 0 0 0;\n      opacity: 0.9;\n    }\n    .post-card {\n      background: white;\n      border-radius: 8px;\n      padding: 30px;\n      margin-bottom: 30px;\n      box-shadow: 0 2px 8px rgba(0,0,0,0.1);\n    }\n    .post-header {\n      display: flex;\n      justify-content: space-between;\n      align-items: center;\n      margin-bottom: 20px;\n      padding-bottom: 15px;\n      border-bottom: 2px solid #667eea;\n    }\n    .post-number {\n      background: #667eea;\n      color: white;\n      width: 50px;\n      height: 50px;\n      border-radius: 50%;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      font-size: 24px;\n      font-weight: bold;\n    }\n    .post-stats {\n      text-align: right;\n      font-size: 12px;\n      color: #666;\n    }\n    .score-badge {\n      display: inline-block;\n      background: #10b981;\n      color: white;\n      padding: 4px 12px;\n      border-radius: 12px;\n      font-weight: bold;\n      margin-top: 5px;\n    }\n    .post-content {\n      line-height: 1.8;\n      color: #333;\n      white-space: pre-wrap;\n      margin: 20px 0;\n      font-size: 14px;\n    }\n    .post-meta {\n      background: #f9fafb;\n      padding: 15px;\n      border-radius: 6px;\n      margin-top: 20px;\n      font-size: 12px;\n      color: #666;\n    }\n    .meta-row {\n      margin: 5px 0;\n    }\n    .label {\n      font-weight: bold;\n      color: #333;\n    }\n    .footer {\n      text-align: center;\n      margin-top: 40px;\n      padding: 20px;\n      color: #666;\n      font-size: 12px;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>📊 LinkedIn Content Radar</h1>\n    <p>Top 7 High-Performing Posts | Week of ${weekOf}</p>\n    <p>AI/Automation Niche Analysis</p>\n  </div>\n`;\n\nfor (const item of items) {\n  const post = item.json;\n  htmlContent += `\n  <div class=\"post-card\">\n    <div class=\"post-header\">\n      <div class=\"post-number\">${post.rank}</div>\n      <div class=\"post-stats\">\n        <div>👤 ${post.creator}</div>\n        <div>❤️ ${post.likes} likes | 💬 ${post.comments} comments</div>\n        <div class=\"score-badge\">Score: ${post.finalScore}/25</div>\n      </div>\n    </div>\n    \n    <div class=\"post-content\">${post.generatedPost}</div>\n    \n    <div class=\"post-meta\">\n      <div class=\"meta-row\">\n        <span class=\"label\">📈 Relevance:</span> ${post.relevanceScore}/5 | \n        <span class=\"label\">💎 Value Depth:</span> ${post.valueDepthScore}/5\n      </div>\n      <div class=\"meta-row\">\n        <span class=\"label\">🎁 Lead Magnet Idea:</span> ${post.leadMagnetSuggestion}\n      </div>\n      <div class=\"meta-row\">\n        <span class=\"label\">🔗 Original:</span> <a href=\"${post.originalUrl}\" target=\"_blank\">View on LinkedIn</a>\n      </div>\n    </div>\n  </div>\n`;\n}\n\nhtmlContent += `\n  <div class=\"footer\">\n    <p>🤖 Generated by Weekly LinkedIn Content Radar Automation</p>\n    <p>Created with n8n + OpenAI | ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })}</p>\n  </div>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    htmlContent: htmlContent,\n    fileName: `LinkedIn_ContentRadar_Week_${weekOf}.html`,\n    weekOf: weekOf\n  }\n}];"
+      },
+      "id": "generate-pdf-html",
+      "name": "Generate PDF HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2650, 600]
+    },
+    {
+      "parameters": {
+        "operation": "convert",
+        "options": {
+          "fileName": "={{ $json.fileName.replace('.html', '.pdf') }}"
+        },
+        "binaryPropertyName": "data",
+        "sourceProperty": "htmlContent"
+      },
+      "id": "html-to-pdf",
+      "name": "Convert HTML to PDF",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [2850, 600]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $credentials.folderId }}",
+          "mode": "id"
+        },
+        "options": {
+          "folderPath": "/LinkedIn Weekly Radar/{{ $json.weekOf }}"
+        }
+      },
+      "id": "google-drive-upload",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [3050, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_WEBHOOK_URL }}/api/webhook/n8n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event",
+              "value": "run_complete"
+            },
+            {
+              "name": "run_id",
+              "value": "={{ $('Generate Run ID').first().json.runId }}"
+            },
+            {
+              "name": "status",
+              "value": "completed"
+            },
+            {
+              "name": "stats",
+              "value": "={{ {\n  creators_scraped: 25,\n  posts_scraped: $('Filter Posts (7 days, 100+ likes)').itemMatching(0) ? $('Filter Posts (7 days, 100+ likes)').all().length : 0,\n  posts_analyzed: $('Calculate & Rank (Top 15)').itemMatching(0) ? $('Calculate & Rank (Top 15)').all().length : 0,\n  posts_generated: 7,\n  openai_calls: 25,\n  openai_cost_usd: 2.50\n} }}"
+            },
+            {
+              "name": "outputs",
+              "value": "={{ {\n  google_sheet_url: 'https://docs.google.com/spreadsheets/d/' + $env.GOOGLE_SHEET_ID,\n  google_drive_pdf_url: $json.webViewLink || ''\n} }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "webhook-run-complete",
+      "name": "Webhook: Run Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3250, 500],
+      "notes": "Final webhook to mark run as completed"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Every Sunday 2PM": {
+      "main": [
+        [
+          {
+            "node": "Generate Run ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Run ID": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Run Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Run Started": {
+      "main": [
+        [
+          {
+            "node": "25 Target LinkedIn Creators",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "25 Target LinkedIn Creators": {
+      "main": [
+        [
+          {
+            "node": "Split Into Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Items": {
+      "main": [
+        [
+          {
+            "node": "Apify LinkedIn Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify LinkedIn Scraper": {
+      "main": [
+        [
+          {
+            "node": "Filter Posts (7 days, 100+ likes)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Posts (7 days, 100+ likes)": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Posts Scraped",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OpenAI Post Analysis & Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Post Analysis & Scoring": {
+      "main": [
+        [
+          {
+            "node": "Calculate & Rank (Top 15)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate & Rank (Top 15)": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Analysis Complete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GPT Generate Brand Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Generate Brand Posts": {
+      "main": [
+        [
+          {
+            "node": "Select Top 7 Final Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Top 7 Final Posts": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Generation Complete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF HTML": {
+      "main": [
+        [
+          {
+            "node": "Convert HTML to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert HTML to PDF": {
+      "main": [
+        [
+          {
+            "node": "Upload to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Webhook: Run Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-25T00:00:00.000Z",
+  "versionId": "2"
+}
