@@ -1,0 +1,914 @@
+{
+  "name": "Firebase Analytics Event Bridge",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tma/firebase",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_firebase",
+      "name": "Firebase Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 450],
+      "webhookId": "tma-firebase-bridge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Firebase normalization logic\nconst b = $json.body;\n\nif (!b || !b.eventType) throw new Error('schema_mismatch: missing eventType');\n\nconst userEmail = b.email || b.userEmail || b.payload?.email || null;\nconst userId = b.userId || b.user_id || b.uid || b.payload?.userId || null;\nif (!userEmail && !userId) throw new Error('schema_mismatch: missing identifier');\n\nlet platform = (b.platform || b.payload?.platform || 'unknown').toLowerCase();\nplatform = platform.includes('ios') ? 'iOS' : platform.includes('android') ? 'Android' : platform.includes('web') ? 'Web' : 'unknown';\n\nconst timestampRaw = b.timestamp || b.logTime || b.event_timestamp || b.payload?.timestamp || new Date().toISOString();\nlet ts;\ntry { ts = new Date(timestampRaw).toISOString(); } catch { ts = new Date().toISOString(); }\n\nconst map = {\n  first_open: 'app_installed',\n  app_install: 'app_installed',\n  trial_started: 'trial_started',\n  trial_start: 'trial_started',\n  trial_ended: 'trial_ended',\n  trial_end: 'trial_ended',\n  trial_expired: 'trial_ended',\n  in_app_purchase: 'subscription_created',\n  purchase: 'subscription_created',\n  subscription_created: 'subscription_created',\n  workout_completed: 'workout_completed',\n  workout_complete: 'workout_completed',\n  paywall_viewed: 'paywall_viewed',\n  paywall_view: 'paywall_viewed',\n  session_start: 'session_start'\n};\n\nlet eventType = map[b.eventType] || b.eventType;\nconst identifier = userId || userEmail;\nconst eventId = `${identifier}_${eventType}_${ts}`;\n\nreturn [{\n  eventId,\n  eventType,\n  originalEventType: b.eventType,\n  userId,\n  userEmail,\n  platform,\n  timestamp: ts,\n  receivedAt: new Date().toISOString(),\n  originalPayload: b.payload || {}\n}];"
+      },
+      "id": "validate_normalize",
+      "name": "Validate & Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 450]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://yynpgxhbjeelycmgwcqw.supabase.co/rest/v1/event_logs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "event_id",
+              "value": "=eq.{{ $json.eventId }}"
+            },
+            {
+              "name": "select",
+              "value": "id,event_id,created_at"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "check_duplicate",
+      "name": "Check Event Already Processed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $('validate_normalize').item.json;\nconst supa = $json;\n\nconst duplicate = Array.isArray(supa) && supa.length > 0;\n\nif (duplicate) {\n  return [{\n    ...event,\n    skipProcessing: true,\n    existingEventId: supa[0]?.id || null,\n    processedAt: supa[0]?.created_at || null,\n    skipReason: 'duplicate_event_id'\n  }];\n}\n\nreturn [{ ...event, skipProcessing: false }];"
+      },
+      "id": "idempotency_eval",
+      "name": "Evaluate Idempotency",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skipProcessing }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if_skip_duplicate",
+      "name": "IF: Skip Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1140, 450]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.userEmail }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            }
+          ]
+        }
+      },
+      "id": "ac_search_contact",
+      "name": "Search AC Contact by Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1360, 580]
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $('idempotency_eval').item.json;\nconst ac = $json;\n\nconst contact = ac?.contacts?.[0] || null;\nconst exists = !!contact;\n\nif (!exists) {\n  return [{\n    ...event,\n    contactExists: false,\n    acContactId: null,\n    wasJustCreated: false,\n    existingUnifiedId: null,\n    existingLastEventTs: null,\n    existingAppInstalled: null,\n    existingTrialStarted: null,\n    existingPersona: null,\n    existingPlatform: null\n  }];\n}\n\n// Extract field values from AC V3\nconst fieldValues = contact.fieldValues || [];\nconst extract = id => {\n  const f = fieldValues.find(v => v.fieldId === id);\n  return f ? f.value : null;\n};\n\nreturn [{\n  ...event,\n  contactExists: true,\n  acContactId: contact.id,\n  acEmail: contact.email,\n  acFirstName: contact.firstName || null,\n  acLastName: contact.lastName || null,\n\n  // Existing field values (placeholder IDs)\n  existingUnifiedId: extract('FIELD_ID_UNIFIED'),\n  existingLastEventTs: extract('FIELD_ID_LAST_TS'),\n  existingAppInstalled: extract('FIELD_ID_APP_INSTALLED'),\n  existingTrialStarted: extract('FIELD_ID_TRIAL_STARTED'),\n  existingPersona: extract('FIELD_ID_PERSONA'),\n  existingPlatform: extract('FIELD_ID_PLATFORM'),\n\n  allFieldValues: fieldValues,\n  shouldCreateContact: false,\n  wasJustCreated: false\n}];"
+      },
+      "id": "ac_eval_contact",
+      "name": "Evaluate Contact Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 580]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.contactExists }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if_contact_exists",
+      "name": "IF: Contact Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1800, 580]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "jsonParameters": true,
+        "body": "={\n  \"contact\": {\n    \"email\": \"{{ $json.userEmail }}\",\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_UNIFIED\", \"value\": \"{{ $json.userId }}\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" },\n      { \"field\": \"FIELD_ID_PLATFORM\", \"value\": \"{{ $json.platform }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_create_contact",
+      "name": "Create New AC Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2020, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $('ac_eval_contact').item.json;\nconst contact = $json.contact || $json;\n\nreturn [{\n  ...event,\n  contactExists: true,\n  acContactId: contact.id,\n  acEmail: contact.email,\n  wasJustCreated: true,\n  shouldUpdate: true,\n  isNewerEvent: true,\n  existingUnifiedId: null,\n  existingLastEventTs: null,\n  existingAppInstalled: null,\n  existingTrialStarted: null\n}];"
+      },
+      "id": "merge_contact",
+      "name": "Merge New Contact Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2240, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $json;\nconst existingTs = event.existingLastEventTs;\nconst currentTs = event.timestamp;\n\nif (!existingTs) {\n  return [{ ...event, shouldUpdate: true, isNewerEvent: true }];\n}\n\nconst isNewer = new Date(currentTs) > new Date(existingTs);\n\nreturn [{\n  ...event,\n  shouldUpdate: isNewer,\n  isNewerEvent: isNewer,\n  skipReason: isNewer ? null : 'older_event_timestamp'\n}];"
+      },
+      "id": "validate_timestamp",
+      "name": "Validate Timestamp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2020, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldUpdate }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if_should_update",
+      "name": "IF: Should Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2240, 450]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.eventType }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "app_installed",
+              "output": 0
+            },
+            {
+              "value2": "trial_started",
+              "output": 1
+            },
+            {
+              "value2": "trial_ended",
+              "output": 2
+            },
+            {
+              "value2": "subscription_created",
+              "output": 3
+            },
+            {
+              "value2": "workout_completed",
+              "output": 4
+            },
+            {
+              "value2": "paywall_viewed",
+              "output": 5
+            },
+            {
+              "value2": "session_start",
+              "output": 6
+            }
+          ]
+        },
+        "fallbackOutput": 7
+      },
+      "id": "switch_event_type",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [2460, 580]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_APP_INSTALLED\", \"value\": \"yes\" },\n      { \"field\": \"FIELD_ID_UNIFIED\", \"value\": \"{{ $json.userId }}\" },\n      { \"field\": \"FIELD_ID_PLATFORM\", \"value\": \"{{ $json.platform }}\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_app_installed",
+      "name": "Update AC: App Installed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 260]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_TRIAL_STARTED\", \"value\": \"yes\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_trial_started",
+      "name": "Update AC: Trial Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 380]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_TRIAL_STARTED\", \"value\": \"no\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_trial_ended",
+      "name": "Update AC: Trial Ended",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 500]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_SUBSCRIPTION_STATUS\", \"value\": \"active\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_subscription",
+      "name": "Update AC: Subscription Created",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 620]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_workout",
+      "name": "Update AC: Workout Completed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 740]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_paywall",
+      "name": "Update AC: Paywall Viewed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 860]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-Token",
+              "value": "YOUR_AC_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+      },
+      "id": "ac_update_session_start",
+      "name": "Update AC: Session Start",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 980]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://yynpgxhbjeelycmgwcqw.supabase.co/rest/v1/event_logs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"event_id\": \"{{ $('validate_normalize').item.json.eventId }}\",\n  \"event_type\": \"{{ $('validate_normalize').item.json.eventType }}\",\n  \"original_event_type\": \"{{ $('validate_normalize').item.json.originalEventType }}\",\n  \"user_id\": \"{{ $('validate_normalize').item.json.userId }}\",\n  \"user_email\": \"{{ $('validate_normalize').item.json.userEmail }}\",\n  \"ac_contact_id\": \"{{ $json.acContactId || $('ac_eval_contact').item.json.acContactId }}\",\n  \"platform\": \"{{ $('validate_normalize').item.json.platform }}\",\n  \"timestamp\": \"{{ $('validate_normalize').item.json.timestamp }}\",\n  \"status\": \"success\",\n  \"was_new_contact\": {{ $('ac_eval_contact').item.json.wasJustCreated || false }},\n  \"processing_time_ms\": {{ Date.now() - Date.parse($('validate_normalize').item.json.receivedAt) }}\n}"
+      },
+      "id": "log_successful",
+      "name": "Log Successful Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2900, 580]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://yynpgxhbjeelycmgwcqw.supabase.co/rest/v1/event_logs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"event_id\": \"{{ $json.eventId }}\",\n  \"event_type\": \"{{ $json.eventType }}\",\n  \"user_id\": \"{{ $json.userId }}\",\n  \"user_email\": \"{{ $json.userEmail }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"status\": \"skipped\",\n  \"skip_reason\": \"{{ $json.skipReason }}\",\n  \"processing_time_ms\": 0\n}"
+      },
+      "id": "log_skipped",
+      "name": "Log Skipped Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1360, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://yynpgxhbjeelycmgwcqw.supabase.co/rest/v1/failed_events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "jsonParameters": true,
+        "sendBody": true,
+        "body": "={\n  \"event_data\": {{ JSON.stringify($json) }},\n  \"error_message\": \"{{ $json.error || 'Unknown error' }}\",\n  \"error_type\": \"{{ $json.errorType || 'processing_error' }}\",\n  \"event_type\": \"{{ $json.eventType || 'unknown' }}\",\n  \"user_email\": \"{{ $json.userEmail || null }}\",\n  \"user_id\": \"{{ $json.userId || null }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\",\n  \"needs_review\": true,\n  \"resolved\": false\n}"
+      },
+      "id": "dead_letter",
+      "name": "Dead Letter Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 1220]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "channel": "#tma-event-bridge-errors",
+        "text": "=⚠️ *Event Bridge Error*\n\n*Event Details:*\n- Event Type: `{{ $('dead_letter').item.json.event_type || 'Unknown' }}`\n- User Email: `{{ $('dead_letter').item.json.user_email || 'N/A' }}`\n- User ID: `{{ $('dead_letter').item.json.user_id || 'N/A' }}`\n\n*Error:*\n```\n{{ $('dead_letter').item.json.error_message || 'No error message' }}\n```\n\n*Action Required:*\n- Review in Supabase → failed_events table\n- Timestamp: {{ new Date().toISOString() }}",
+        "otherOptions": {}
+      },
+      "id": "slack_error_alert",
+      "name": "Alert: Event Processing Error",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [2900, 1220],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "YOUR_SLACK_CREDENTIAL_ID",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "webhook_firebase": {
+      "main": [
+        [
+          {
+            "node": "validate_normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_normalize": {
+      "main": [
+        [
+          {
+            "node": "check_duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_duplicate": {
+      "main": [
+        [
+          {
+            "node": "idempotency_eval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "idempotency_eval": {
+      "main": [
+        [
+          {
+            "node": "if_skip_duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_skip_duplicate": {
+      "main": [
+        [
+          {
+            "node": "log_skipped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_search_contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_search_contact": {
+      "main": [
+        [
+          {
+            "node": "ac_eval_contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_eval_contact": {
+      "main": [
+        [
+          {
+            "node": "if_contact_exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_contact_exists": {
+      "main": [
+        [
+          {
+            "node": "validate_timestamp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_create_contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_create_contact": {
+      "main": [
+        [
+          {
+            "node": "merge_contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "merge_contact": {
+      "main": [
+        [
+          {
+            "node": "validate_timestamp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_timestamp": {
+      "main": [
+        [
+          {
+            "node": "if_should_update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_should_update": {
+      "main": [
+        [
+          {
+            "node": "switch_event_type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "log_skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_event_type": {
+      "main": [
+        [
+          {
+            "node": "ac_update_app_installed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_update_trial_started",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_update_trial_ended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_update_subscription",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_update_workout",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_update_paywall",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ac_update_session_start",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "dead_letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_app_installed": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_trial_started": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_trial_ended": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_subscription": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_workout": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_paywall": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac_update_session_start": {
+      "main": [
+        [
+          {
+            "node": "log_successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "dead_letter": {
+      "main": [
+        [
+          {
+            "node": "slack_error_alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-14T00:00:00.000Z",
+  "versionId": "1"
+}
