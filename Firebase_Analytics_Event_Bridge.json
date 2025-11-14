@@ -49,11 +49,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "YOUR_SUPABASE_ANON_KEY"
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Authorization",
-              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             }
           ]
         }
@@ -95,7 +95,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts' }}",
+        "url": "https://bwta.api-us1.com/api/3/contacts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
@@ -112,7 +112,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             }
           ]
         }
@@ -125,7 +125,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const event = $('idempotency_eval').item.json;\nconst ac = $json;\n\nconst contact = ac?.contacts?.[0] || null;\nconst exists = !!contact;\n\nif (!exists) {\n  return [{\n    ...event,\n    contactExists: false,\n    acContactId: null,\n    wasJustCreated: false,\n    existingUnifiedId: null,\n    existingLastEventTs: null,\n    existingAppInstalled: null,\n    existingTrialStarted: null,\n    existingPersona: null,\n    existingPlatform: null\n  }];\n}\n\n// Extract field values from AC V3\nconst fieldValues = contact.fieldValues || [];\nconst extract = id => {\n  const f = fieldValues.find(v => v.fieldId === id);\n  return f ? f.value : null;\n};\n\nreturn [{\n  ...event,\n  contactExists: true,\n  acContactId: contact.id,\n  acEmail: contact.email,\n  acFirstName: contact.firstName || null,\n  acLastName: contact.lastName || null,\n\n  // Existing field values (placeholder IDs)\n  existingUnifiedId: extract('FIELD_ID_UNIFIED'),\n  existingLastEventTs: extract('FIELD_ID_LAST_TS'),\n  existingAppInstalled: extract('FIELD_ID_APP_INSTALLED'),\n  existingTrialStarted: extract('FIELD_ID_TRIAL_STARTED'),\n  existingPersona: extract('FIELD_ID_PERSONA'),\n  existingPlatform: extract('FIELD_ID_PLATFORM'),\n\n  allFieldValues: fieldValues,\n  shouldCreateContact: false,\n  wasJustCreated: false\n}];"
+        "jsCode": "const event = $('idempotency_eval').item.json;\nconst ac = $json;\n\nconst contact = ac?.contacts?.[0] || null;\nconst exists = !!contact;\n\nif (!exists) {\n  return [{\n    ...event,\n    contactExists: false,\n    acContactId: null,\n    wasJustCreated: false,\n    existingUnifiedId: null,\n    existingLastEventTs: null,\n    existingAppInstalled: null,\n    existingTrialStarted: null,\n    existingPersona: null,\n    existingPlatform: null\n  }];\n}\n\n// Extract field values from AC V3\nconst fieldValues = contact.fieldValues || [];\nconst extract = id => {\n  const f = fieldValues.find(v => v.field === id);\n  return f ? f.value : null;\n};\n\nreturn [{\n  ...event,\n  contactExists: true,\n  acContactId: contact.id,\n  acEmail: contact.email,\n  acFirstName: contact.firstName || null,\n  acLastName: contact.lastName || null,\n\n  // Existing field values (using numeric IDs)\n  existingUnifiedId: extract('1'),\n  existingLastEventTs: extract('2'),\n  existingAppInstalled: extract('4'),\n  existingTrialStarted: extract('5'),\n  existingPersona: extract('7'),\n  existingPlatform: extract('3'),\n\n  allFieldValues: fieldValues,\n  shouldCreateContact: false,\n  wasJustCreated: false\n}];"
       },
       "id": "ac_eval_contact",
       "name": "Evaluate Contact Exists",
@@ -154,7 +154,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts' }}",
+        "url": "https://bwta.api-us1.com/api/3/contacts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -162,7 +162,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -175,7 +175,7 @@
           "parameters": []
         },
         "jsonParameters": true,
-        "body": "={\n  \"contact\": {\n    \"email\": \"{{ $json.userEmail }}\",\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_UNIFIED\", \"value\": \"{{ $json.userId }}\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" },\n      { \"field\": \"FIELD_ID_PLATFORM\", \"value\": \"{{ $json.platform }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"email\": \"{{ $json.userEmail }}\",\n    \"fieldValues\": [\n      { \"field\": \"1\", \"value\": \"{{ $json.userId }}\" },\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" },\n      { \"field\": \"3\", \"value\": \"{{ $json.platform }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_create_contact",
       "name": "Create New AC Contact",
@@ -268,7 +268,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -276,7 +276,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -286,7 +286,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_APP_INSTALLED\", \"value\": \"yes\" },\n      { \"field\": \"FIELD_ID_UNIFIED\", \"value\": \"{{ $json.userId }}\" },\n      { \"field\": \"FIELD_ID_PLATFORM\", \"value\": \"{{ $json.platform }}\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"4\", \"value\": \"yes\" },\n      { \"field\": \"1\", \"value\": \"{{ $json.userId }}\" },\n      { \"field\": \"3\", \"value\": \"{{ $json.platform }}\" },\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_app_installed",
       "name": "Update AC: App Installed",
@@ -297,7 +297,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -305,7 +305,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -315,7 +315,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_TRIAL_STARTED\", \"value\": \"yes\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"5\", \"value\": \"yes\" },\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_trial_started",
       "name": "Update AC: Trial Started",
@@ -326,7 +326,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -334,7 +334,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -344,7 +344,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_TRIAL_STARTED\", \"value\": \"no\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"5\", \"value\": \"no\" },\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_trial_ended",
       "name": "Update AC: Trial Ended",
@@ -355,7 +355,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -363,7 +363,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -373,7 +373,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_SUBSCRIPTION_STATUS\", \"value\": \"active\" },\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"6\", \"value\": \"active\" },\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_subscription",
       "name": "Update AC: Subscription Created",
@@ -384,7 +384,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -392,7 +392,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -402,7 +402,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_workout",
       "name": "Update AC: Workout Completed",
@@ -413,7 +413,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -421,7 +421,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -431,7 +431,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_paywall",
       "name": "Update AC: Paywall Viewed",
@@ -442,7 +442,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ ($env.ACTIVECAMPAIGN_API_URL || 'https://YOUR_AC_API_URL.api-us1.com/api/3/contacts/') + $json.acContactId }}",
+        "url": "=https://bwta.api-us1.com/api/3/contacts/{{ $json.acContactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -450,7 +450,7 @@
           "parameters": [
             {
               "name": "Api-Token",
-              "value": "YOUR_AC_API_KEY"
+              "value": "a3b7bb2d5585751b78f035241d4e35d0fc78fb4558ad3e48debf46e0979be7491084438f"
             },
             {
               "name": "Content-Type",
@@ -460,7 +460,7 @@
         },
         "jsonParameters": true,
         "sendBody": true,
-        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"FIELD_ID_LAST_TS\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
+        "body": "={\n  \"contact\": {\n    \"fieldValues\": [\n      { \"field\": \"2\", \"value\": \"{{ $json.timestamp }}\" }\n    ]\n  }\n}"
       },
       "id": "ac_update_session_start",
       "name": "Update AC: Session Start",
@@ -479,11 +479,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "YOUR_SUPABASE_KEY"
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Authorization",
-              "value": "Bearer YOUR_SUPABASE_KEY"
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Content-Type",
@@ -516,11 +516,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "YOUR_SUPABASE_KEY"
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Authorization",
-              "value": "Bearer YOUR_SUPABASE_KEY"
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Content-Type",
@@ -553,11 +553,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "YOUR_SUPABASE_KEY"
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Authorization",
-              "value": "Bearer YOUR_SUPABASE_KEY"
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bnBneGhiamVlbHljbWd3Y3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxOTMsImV4cCI6MjA3ODU1MjE5M30.zO3F77dICmpyBCtowO88ZELCZ5rJjJwfP-3KtI8Av98"
             },
             {
               "name": "Content-Type",
@@ -593,7 +593,7 @@
       "position": [2900, 1220],
       "credentials": {
         "slackOAuth2Api": {
-          "id": "YOUR_SLACK_CREDENTIAL_ID",
+          "id": "1",
           "name": "Slack OAuth2 API"
         }
       }
