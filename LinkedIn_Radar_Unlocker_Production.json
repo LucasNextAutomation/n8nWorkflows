@@ -78,7 +78,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer 8d6d87d5de48ae3e4e78cc8a7df1d1945bfb26d4af7775a8215e2b0ac2dee1c6"
+              "value": "Bearer REDACTED_BRIGHT_DATA_TOKEN"
             },
             {
               "name": "Content-Type",
